@@ -1,6 +1,8 @@
 import { createPool } from "./pool.js";
 import { migrate, resetSchema } from "./migrate.js";
 import { seed } from "./seed.js";
+import { loadPharmacyUrls, PHARMACY_CODES, setupAllPharmacies } from "./pharmacy.js";
+import { createPool as pool } from "./pool.js";
 
 const command = process.argv[2];
 const db = createPool();
@@ -15,8 +17,28 @@ try {
     await resetSchema(db);
     console.log("Applied:", (await migrate(db)).join(", "));
     console.log("Seeded:", await seed(db));
+  } else if (command === "pharmacies:setup") {
+    console.log("Pharmacy databases ready (items per pharmacy):", await setupAllPharmacies(db));
+  } else if (command === "pharmacies:status") {
+    const urls = loadPharmacyUrls();
+    for (const code of PHARMACY_CODES) {
+      const p = pool(urls[code]);
+      try {
+        const { rows } = await p.query<{ name: string; items: string; units: string; crocin: number | null }>(
+          `SELECT (SELECT name FROM pharmacy_profile) AS name, count(*) AS items, sum(quantity) AS units,
+                  max(quantity) FILTER (WHERE medicine_code = 'M001') AS crocin
+           FROM inventory`,
+        );
+        const r = rows[0]!;
+        console.log(`${code}  ${r.name.padEnd(27)} items=${r.items} units=${r.units} crocin500=${r.crocin ?? "-"}`);
+      } catch (err) {
+        console.log(`${code}  UNAVAILABLE (${(err as Error).message})`);
+      } finally {
+        await p.end();
+      }
+    }
   } else {
-    console.error("Usage: cli.ts <migrate|seed|reset>");
+    console.error("Usage: cli.ts <migrate|seed|reset|pharmacies:setup|pharmacies:status>");
     process.exitCode = 1;
   }
 } catch (err) {

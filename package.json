@@ -2,15 +2,22 @@
   "name": "medlink",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "db:up": "docker compose up -d --wait postgres",
     "db:migrate": "npm run migrate -w @medlink/db",
     "db:seed": "npm run seed -w @medlink/db",
     "db:reset": "npm run reset -w @medlink/db",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && npm run typecheck -w @medlink/web",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "web:dev": "npm run dev -w @medlink/web",
+    "api:dev": "npm run dev -w @medlink/search-service",
+    "pharmacies:setup": "npm run pharmacies:setup -w @medlink/db",
+    "pharmacies:status": "npm run pharmacies:status -w @medlink/db"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

@@ -3,7 +3,10 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import type { Db } from "./pool.js";
 
-const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "migrations");
+const PKG_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const MIGRATIONS_DIR = path.join(PKG_DIR, "migrations");
+/** Schema applied to every pharmacy's own database. */
+export const PHARMACY_MIGRATIONS_DIR = path.join(PKG_DIR, "pharmacy-migrations");
 
 /** Applies pending *.sql files in filename order, each in its own transaction. Returns applied names. */
 export async function migrate(db: Db, dir = MIGRATIONS_DIR): Promise<string[]> {

@@ -5,4 +5,10 @@ export default tseslint.config(
   { ignores: ["**/dist/**", "**/node_modules/**", "**/.next/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    rules: {
+      // A leading underscore marks a deliberately unused parameter.
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+    },
+  },
 );

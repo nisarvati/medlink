@@ -8,8 +8,18 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["packages/**/*.ts", "apps/**/*.ts", "vitest.config.ts"],
-  "exclude": ["node_modules", "**/dist"]
+  "include": [
+    "packages/**/*.ts",
+    "apps/**/*.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/dist",
+    "apps/web"
+  ]
 }

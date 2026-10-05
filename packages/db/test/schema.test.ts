@@ -57,7 +57,7 @@ describe("schema", () => {
 
   it("rejects invalid pharmacy coordinates", async () => {
     await expect(
-      db.query("INSERT INTO pharmacies (name, address, latitude, longitude) VALUES ('x','y',91,0)"),
+      db.query("INSERT INTO pharmacies (code, name, address, latitude, longitude) VALUES ('P900','x','y',91,0)"),
     ).rejects.toMatchObject({ code: "23514" });
   });
 
@@ -71,7 +71,7 @@ describe("schema", () => {
 
   it("rejects duplicate medicine variants", async () => {
     await expect(
-      db.query("INSERT INTO medicines (brand_name, generic_name, dosage, form) VALUES ('Crocin','Paracetamol','500mg','tablet')"),
+      db.query("INSERT INTO medicines (code, brand_name, generic_name, dosage, form) VALUES ('M900','Crocin','Paracetamol','500mg','tablet')"),
     ).rejects.toMatchObject({ code: "23505" });
   });
 });

@@ -1,5 +1,5 @@
 import pg from "pg";
-import { createPool, migrate, resetSchema, seed, type Db } from "./index.js";
+import { createPool, loadPharmacyUrls, migrate, provisionPharmacyDatabase, resetSchema, seed, setupPharmacyDatabase, type Db } from "./index.js";
 
 /**
  * Tests run against a dedicated `<db>_test` database so resetting the schema
@@ -30,4 +30,32 @@ export async function freshSeededDb(): Promise<Db> {
   await migrate(db);
   await seed(db);
   return db;
+}
+
+/** Same roles as development, but databases suffixed `_test`, so tests never touch dev pharmacy data. */
+export function testPharmacyUrls(env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const urls = loadPharmacyUrls(env);
+  return Object.fromEntries(
+    Object.entries(urls).map(([code, url]) => {
+      const u = new URL(url);
+      u.pathname = `${u.pathname}_test`;
+      return [code, u.toString()];
+    }),
+  );
+}
+
+/** Provisions, resets and seeds the five test pharmacy databases. */
+export async function freshPharmacyDbs(admin: Db): Promise<Record<string, string>> {
+  const urls = testPharmacyUrls();
+  for (const [code, url] of Object.entries(urls)) {
+    await provisionPharmacyDatabase(admin, url);
+    const pool = createPool(url);
+    try {
+      await resetSchema(pool);
+    } finally {
+      await pool.end();
+    }
+    await setupPharmacyDatabase(code, url);
+  }
+  return urls;
 }
