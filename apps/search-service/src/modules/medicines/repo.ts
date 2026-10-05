@@ -7,6 +7,8 @@ export interface Medicine {
   genericName: string;
   dosage: string;
   form: string;
+  /** How well the name matched the query, 0..1 (1 = exact brand name). */
+  relevance: number;
 }
 
 interface MedicineRow {
@@ -15,7 +17,11 @@ interface MedicineRow {
   generic_name: string;
   dosage: string;
   form: string;
+  relevance_rank: number;
 }
+
+/** Maps the SQL match tier (0 = exact brand ... 4 = loose match) to a 0..1 relevance. */
+const RELEVANCE_BY_TIER = [1, 0.9, 0.8, 0.6, 0.4];
 
 const toMedicine = (r: MedicineRow): Medicine => ({
   id: Number(r.id),
@@ -23,6 +29,7 @@ const toMedicine = (r: MedicineRow): Medicine => ({
   genericName: r.generic_name,
   dosage: r.dosage,
   form: r.form,
+  relevance: RELEVANCE_BY_TIER[r.relevance_rank] ?? 0.4,
 });
 
 export async function searchMedicines(db: Db, q: MedicineQuery, limit = 20): Promise<Medicine[]> {
@@ -51,10 +58,10 @@ export async function searchMedicines(db: Db, q: MedicineQuery, limit = 20): Pro
     : "0";
 
   const { rows } = await db.query<MedicineRow>(
-    `SELECT id, brand_name, generic_name, dosage, form
+    `SELECT id, brand_name, generic_name, dosage, form, ${relevance} AS relevance_rank
      FROM medicines
      WHERE ${where.join(" AND ")}
-     ORDER BY ${relevance}, brand_name, dosage
+     ORDER BY relevance_rank, brand_name, dosage
      LIMIT ${add(limit)}`,
     params,
   );

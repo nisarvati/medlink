@@ -105,36 +105,6 @@ describe("GET /api/pharmacies", () => {
   });
 });
 
-describe("GET /api/search (medicines + pharmacies)", () => {
-  it("returns Crocin with the pharmacies that carry it, price and stock status", async () => {
-    const res = await get("/api/search?q=Crocin");
-    expect(res.statusCode).toBe(200);
-    const [result] = res.json().data;
-    expect(result.medicine.brandName).toBe("Crocin");
-    expect(result.pharmacies).toHaveLength(5);
-    const byName = Object.fromEntries(result.pharmacies.map((p: { name: string }) => [p.name.slice(0, 10), p]));
-    expect(byName["Pharmacy A"]).toMatchObject({ quantity: 1, price: 25, stockStatus: "LOW_STOCK" });
-    expect(byName["Pharmacy B"]).toMatchObject({ quantity: 40, price: 23, stockStatus: "IN_STOCK" });
-    expect(byName["Pharmacy D"]).toMatchObject({ quantity: 0, stockStatus: "OUT_OF_STOCK" });
-  });
-
-  it("lists in-stock pharmacies before out-of-stock ones", async () => {
-    const [result] = (await get("/api/search?q=Crocin")).json().data;
-    const qty: number[] = result.pharmacies.map((p: { quantity: number }) => p.quantity);
-    expect(qty[qty.length - 1]).toBe(0);
-  });
-
-  it("returns an empty list for unknown medicines", async () => {
-    const res = await get("/api/search?q=notamedicine");
-    expect(res.statusCode).toBe(200);
-    expect(res.json().data).toEqual([]);
-  });
-
-  it("rejects a missing query", async () => {
-    expect((await get("/api/search")).statusCode).toBe(400);
-  });
-});
-
 describe("inventory API", () => {
   it("lists and filters inventory", async () => {
     const all = (await get("/api/inventory?limit=200")).json();

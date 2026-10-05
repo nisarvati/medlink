@@ -1,75 +1,32 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import type { Db } from "@medlink/db";
 import type { Config } from "../../config.js";
-import { stockStatus, type StockStatus } from "../inventory/stock.js";
-import { parseMedicineQuery } from "../medicines/query.js";
-import { searchMedicines, type Medicine } from "../medicines/repo.js";
-import { searchQuery } from "../medicines/routes.js";
+import { searchOffers } from "./service.js";
 
-interface Offer {
-  pharmacyId: number;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  quantity: number;
-  price: number;
-  stockStatus: StockStatus;
-  updatedAt: string;
-}
+const DECIMAL = /^-?\d+(\.\d+)?$/;
 
-interface Row {
-  medicine_id: string;
-  pharmacy_id: string;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  quantity: number;
-  price: string;
-  updated_at: Date;
-}
+const coordinate = (name: string, limit: number) =>
+  z
+    .string({ required_error: `${name} is required (decimal degrees)` })
+    .trim()
+    .regex(DECIMAL, `${name} must be a decimal number`)
+    .transform(Number)
+    .pipe(z.number().min(-limit, `${name} must be between -${limit} and ${limit}`).max(limit, `${name} must be between -${limit} and ${limit}`));
 
-/**
- * M2: medicines matching the query, each with the pharmacies that carry it.
- * Location-aware ranking is added in M3.
- */
+export const searchQuery = z.object({
+  q: z.string().trim().min(1, "q is required").max(100),
+  lat: coordinate("lat", 90),
+  lng: coordinate("lng", 180),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
 export function searchRoutes(app: FastifyInstance, db: Db, config: Config) {
   app.get("/api/search", async (req) => {
-    const { q, limit } = searchQuery.parse(req.query);
-    const medicines: Medicine[] = await searchMedicines(db, parseMedicineQuery(q), limit);
-
-    const offersByMedicine = new Map<number, Offer[]>();
-    if (medicines.length) {
-      const { rows } = await db.query<Row>(
-        `SELECT i.medicine_id, i.pharmacy_id, p.name, p.address, p.latitude, p.longitude,
-                i.quantity, i.price, i.updated_at
-         FROM inventory i JOIN pharmacies p ON p.id = i.pharmacy_id
-         WHERE i.medicine_id = ANY($1::bigint[])
-         ORDER BY (i.quantity > 0) DESC, i.price, p.name`,
-        [medicines.map((m) => m.id)],
-      );
-      for (const r of rows) {
-        const list = offersByMedicine.get(Number(r.medicine_id)) ?? [];
-        list.push({
-          pharmacyId: Number(r.pharmacy_id),
-          name: r.name,
-          address: r.address,
-          latitude: r.latitude,
-          longitude: r.longitude,
-          quantity: r.quantity,
-          price: Number(r.price),
-          stockStatus: stockStatus(r.quantity, config.LOW_STOCK_THRESHOLD),
-          updatedAt: r.updated_at.toISOString(),
-        });
-        offersByMedicine.set(Number(r.medicine_id), list);
-      }
-    }
-
-    req.log.info({ q, medicines: medicines.length }, "search");
-    return {
-      data: medicines.map((medicine) => ({ medicine, pharmacies: offersByMedicine.get(medicine.id) ?? [] })),
-      meta: { count: medicines.length },
-    };
+    const { q, lat, lng, limit } = searchQuery.parse(req.query);
+    const results = await searchOffers(db, config, { q, location: { latitude: lat, longitude: lng }, limit });
+    // Patient location is logged at ~1 km precision only.
+    req.log.info({ q, approxLat: Math.round(lat * 100) / 100, approxLng: Math.round(lng * 100) / 100, results: results.length }, "search");
+    return { data: results, meta: { count: results.length, weights: config.ranking.weights } };
   });
 }
