@@ -8,7 +8,8 @@
     "seed": "tsx --env-file-if-exists=../../.env src/cli.ts seed",
     "reset": "tsx --env-file-if-exists=../../.env src/cli.ts reset",
     "pharmacies:setup": "tsx --env-file-if-exists=../../.env src/cli.ts pharmacies:setup",
-    "pharmacies:status": "tsx --env-file-if-exists=../../.env src/cli.ts pharmacies:status"
+    "pharmacies:status": "tsx --env-file-if-exists=../../.env src/cli.ts pharmacies:status",
+    "pharmacies:reset": "tsx --env-file-if-exists=../../.env src/cli.ts pharmacies:reset"
   },
   "dependencies": {
     "pg": "^8.13.0"

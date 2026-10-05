@@ -17,7 +17,9 @@
     "web:dev": "npm run dev -w @medlink/web",
     "api:dev": "npm run dev -w @medlink/search-service",
     "pharmacies:setup": "npm run pharmacies:setup -w @medlink/db",
-    "pharmacies:status": "npm run pharmacies:status -w @medlink/db"
+    "pharmacies:status": "npm run pharmacies:status -w @medlink/db",
+    "pharmacies:reset": "npm run pharmacies:reset -w @medlink/db",
+    "connector:start": "npm run start -w @medlink/inventory-connector"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

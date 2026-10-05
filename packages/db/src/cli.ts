@@ -1,7 +1,7 @@
 import { createPool } from "./pool.js";
 import { migrate, resetSchema } from "./migrate.js";
 import { seed } from "./seed.js";
-import { loadPharmacyUrls, PHARMACY_CODES, setupAllPharmacies } from "./pharmacy.js";
+import { loadPharmacyUrls, PHARMACY_CODES, provisionPharmacyDatabase, setupAllPharmacies, setupPharmacyDatabase } from "./pharmacy.js";
 import { createPool as pool } from "./pool.js";
 
 const command = process.argv[2];
@@ -19,6 +19,20 @@ try {
     console.log("Seeded:", await seed(db));
   } else if (command === "pharmacies:setup") {
     console.log("Pharmacy databases ready (items per pharmacy):", await setupAllPharmacies(db));
+  } else if (command === "pharmacies:reset") {
+    // Back to the starting demo state: drops each pharmacy's schema, re-applies migrations, re-seeds stock.
+    const urls = loadPharmacyUrls();
+    for (const code of PHARMACY_CODES) {
+      await provisionPharmacyDatabase(db, urls[code]!);
+      const p = pool(urls[code]);
+      try {
+        await resetSchema(p);
+      } finally {
+        await p.end();
+      }
+      await setupPharmacyDatabase(code, urls[code]!);
+    }
+    console.log("Pharmacy databases reset to the starting state");
   } else if (command === "pharmacies:status") {
     const urls = loadPharmacyUrls();
     for (const code of PHARMACY_CODES) {
@@ -38,7 +52,7 @@ try {
       }
     }
   } else {
-    console.error("Usage: cli.ts <migrate|seed|reset|pharmacies:setup|pharmacies:status>");
+    console.error("Usage: cli.ts <migrate|seed|reset|pharmacies:setup|pharmacies:reset|pharmacies:status>");
     process.exitCode = 1;
   }
 } catch (err) {
