@@ -111,3 +111,4 @@ export function assertInventoryEvent(input: unknown): InventoryEvent {
   if (!r.success) throw new Error(`Invalid inventory event: ${r.errors.join("; ")}`);
   return r.event;
 }
+export * from "./streams.js";

@@ -19,7 +19,9 @@
     "pharmacies:setup": "npm run pharmacies:setup -w @medlink/db",
     "pharmacies:status": "npm run pharmacies:status -w @medlink/db",
     "pharmacies:reset": "npm run pharmacies:reset -w @medlink/db",
-    "connector:start": "npm run start -w @medlink/inventory-connector"
+    "connector:start": "npm run start -w @medlink/inventory-connector",
+    "infra:up": "docker compose up -d --wait postgres redis",
+    "sync:start": "npm run start -w @medlink/inventory-sync"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
@@ -30,5 +32,6 @@
     "typescript": "^5.6.0",
     "typescript-eslint": "^8.0.0",
     "vitest": "^2.1.0"
-  }
+  },
+  "dependencies": {}
 }

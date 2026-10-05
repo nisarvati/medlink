@@ -1,16 +1,15 @@
 {
-  "name": "@medlink/inventory-connector",
+  "name": "@medlink/inventory-sync",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "start": "tsx --env-file-if-exists=../../.env src/main.ts"
+    "start": "node --import tsx --env-file-if-exists=../../.env src/main.ts"
   },
   "dependencies": {
-    "@medlink/db": "*",
     "@medlink/event-schema": "*",
-    "pino": "^10.0.0",
-    "@medlink/redis": "*"
+    "@medlink/redis": "*",
+    "pino": "^10.0.0"
   },
   "exports": {
     ".": "./src/index.ts"

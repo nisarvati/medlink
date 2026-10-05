@@ -1,9 +1,16 @@
 import { createPool, loadPharmacyUrls, PHARMACY_CODES } from "@medlink/db";
+import { createRedis, describeError } from "@medlink/redis";
 import { InventoryConnector } from "./connector.js";
 import { createLogger } from "./logger.js";
-import { LogPublisher } from "./publisher.js";
+import { RedisStreamPublisher } from "./redis-publisher.js";
 
 const logger = createLogger(process.env.LOG_LEVEL ?? "info");
+
+const redisUrl = process.env.REDIS_URL;
+if (!redisUrl) {
+  logger.error({}, "REDIS_URL is not set");
+  process.exit(1);
+}
 
 // One independent connector per pharmacy (each with its own database connection and failure handling).
 // CONNECTOR_PHARMACIES="P001,P003" runs a subset, e.g. one container per pharmacy.
@@ -16,7 +23,14 @@ if (unknown.length) {
 }
 
 const urls = loadPharmacyUrls();
-const publisher = new LogPublisher(logger); // M7 replaces this with the Redis Streams publisher
+// Fail fast when Redis is unreachable: the outbox keeps the events, and the connector retries with backoff.
+const redis = createRedis({
+  url: redisUrl,
+  name: "inventory-connector",
+  failFast: true,
+  onError: (err) => logger.error({ error: describeError(err) }, "redis connection error"),
+});
+const publisher = new RedisStreamPublisher(redis, { keyPrefix: process.env.REDIS_KEY_PREFIX });
 const pools = codes.map((code) => createPool(urls[code]));
 const connectors = codes.map(
   (code, i) =>
@@ -40,6 +54,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
     logger.info({ signal }, "shutting down");
     await Promise.all(connectors.map((c) => c.stop()));
     await Promise.all(pools.map((p) => p.end()));
+    redis.disconnect();
     process.exit(0);
   });
 }
