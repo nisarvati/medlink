@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Db } from "../src/index.js";
 import { migrate, seed } from "../src/index.js";
-import { freshSeededDb } from "./helpers.js";
+import { freshSeededDb } from "../src/testing.js";
 
 let db: Db;
 

@@ -1,5 +1,5 @@
 import pg from "pg";
-import { createPool, migrate, resetSchema, seed, type Db } from "../src/index.js";
+import { createPool, migrate, resetSchema, seed, type Db } from "./index.js";
 
 /**
  * Tests run against a dedicated `<db>_test` database so resetting the schema
