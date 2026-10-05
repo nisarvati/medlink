@@ -1,0 +1,25 @@
+{
+  "name": "medlink",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "db:up": "docker compose up -d --wait postgres",
+    "db:migrate": "npm run migrate -w @medlink/db",
+    "db:seed": "npm run seed -w @medlink/db",
+    "db:reset": "npm run reset -w @medlink/db",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "eslint": "^9.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^2.1.0"
+  }
+}
