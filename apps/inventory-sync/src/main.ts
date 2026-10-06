@@ -2,6 +2,7 @@ import { hostname } from "node:os";
 import { createRedis, describeError } from "@medlink/redis";
 import { DEFAULT_DEDUP_OPTIONS, DedupHandler } from "./dedup.js";
 import { SyncStatusHandler } from "./handler.js";
+import { CompositeHandler, InventoryStateHandler } from "./state.js";
 import { createLogger } from "./logger.js";
 import { DEFAULT_SYNC_OPTIONS, SyncService } from "./service.js";
 
@@ -21,7 +22,9 @@ const redis = createRedis({
   onError: (err) => logger.error({ error: describeError(err) }, "redis connection error"),
 });
 
-const handler = new DedupHandler(redis, new SyncStatusHandler(redis, keyPrefix), {
+// State goes last: it commits the dedup marker in the same atomic step as the stock change.
+const inner = new CompositeHandler([new SyncStatusHandler(redis, keyPrefix), new InventoryStateHandler(redis, { keyPrefix })]);
+const handler = new DedupHandler(redis, inner, {
   keyPrefix,
   retentionMs: num("SYNC_DEDUP_RETENTION_HOURS", DEFAULT_DEDUP_OPTIONS.retentionMs / 3_600_000) * 3_600_000,
   leaseMs: num("SYNC_DEDUP_LEASE_MS", DEFAULT_DEDUP_OPTIONS.leaseMs),

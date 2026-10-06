@@ -6,6 +6,11 @@ export interface HandlerContext {
   streamId: string;
   /** How many times this entry has been delivered (1 = first attempt). */
   deliveries: number;
+  /**
+   * Set by DedupHandler. A handler that can write this marker in the same atomic step as its own state change
+   * (see InventoryStateHandler) does so, which closes the crash window between "handled" and "marked done".
+   */
+  dedupMarker?: { key: string; retentionMs: number };
 }
 
 /**
@@ -13,6 +18,8 @@ export interface HandlerContext {
  * unacknowledged and retried later, and dead-lettered after too many attempts.
  */
 export interface EventHandler {
+  /** True if this handler writes `ctx.dedupMarker` itself, atomically with its state change. */
+  readonly commitsDedupMarker?: boolean;
   handle(event: InventoryEvent, ctx: HandlerContext): Promise<void>;
 }
 

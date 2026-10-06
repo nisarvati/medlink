@@ -1,8 +1,8 @@
 # Redis Streams: event transport and consumer-group design
 
-This describes what is implemented today (milestone 7). The sync service **receives, validates, acknowledges and
-reports on** events. It does **not** yet apply them to inventory state: that needs duplicate protection first
-(milestone 8, now added as `DedupHandler`) and then the Redis current-state model (milestone 9).
+This describes what is implemented today (milestones 7 to 9). The sync service **receives, validates, de-duplicates,
+acknowledges and reports on** events, and **applies them to a current-state model in Redis** (stock and price per
+pharmacy and medicine).
 
 ```mermaid
 flowchart LR
@@ -21,7 +21,10 @@ flowchart LR
 | `medlink:events:{P001}` | stream | One per pharmacy. Each entry has one field, `event`, holding the JSON `InventoryEvent`. |
 | `medlink:streams` | set | Registry of stream keys. Connectors add to it; the sync service reads it to discover pharmacies. |
 | `medlink:events:dlq` | stream | Events that could not be processed, with the reason and the original payload. |
-| `medlink:sync:{P001}` | hash | Per-pharmacy status: last event, last sync time, latency, processed count. |
+| `medlink:sync:{P001}` | hash | Per-pharmacy status: last event, last sync time, latency, processed / duplicate / applied / stale counts. |
+| `medlink:dedup:{P001}:<eventId>` | string | Duplicate marker, `processing` or `done` (see "Duplicate protection"). |
+| `medlink:inventory:{P001}:M001` | hash | Current state of one medicine at one pharmacy (see "Current state"). |
+| `medlink:inventory:{P001}:index` | set | Medicine ids the pharmacy currently lists. |
 
 `medlink` is a configurable prefix (`REDIS_KEY_PREFIX`). The pharmacy code is a Redis hash tag (`{P001}`), so in Redis
 Cluster (milestone 10) all keys of one pharmacy hash to the same slot. Key names live in one place:
@@ -104,9 +107,43 @@ is still held.
 **Retention must be longer than any way a duplicate can still arrive**: outbox republish after a connector crash,
 retry of a pending entry, and stream retention. After that window an old `eventId` is treated as new.
 
-**Known gap:** the marker and the handler's own writes are separate Redis calls. A crash between them can run the
-handler twice for that one event. Closing it needs the marker written in the same atomic step as the state change,
-which the current-state model (milestone 9) will do.
+**The marker and the state change are one atomic step.** `InventoryStateHandler` declares `commitsDedupMarker`, so
+`DedupHandler` passes it the marker key and retention and does not write `done` itself. The state script applies the
+change and sets `done` together (and refuses an event whose marker is already `done`), so a crash can never leave a
+change applied but unmarked, or marked but not applied. A handler without that flag still gets the old two-step
+behaviour, with the small crash window described above.
+
+## Current state (milestone 9)
+
+`InventoryStateHandler` keeps one hash per medicine per pharmacy, `medlink:inventory:{P001}:M001`:
+
+| Field | Meaning |
+|---|---|
+| `quantity` | the pharmacy's own `quantityAfter` from the last event that decided it (never "old quantity + delta") |
+| `quantityTs` | time (epoch ms) of that event |
+| `price`, `priceTs` | same for the price |
+| `removed` | `1` after `MEDICINE_REMOVED` |
+| `lastEventId`, `medicineId` | bookkeeping |
+
+Reading: `getItem(pharmacyId, medicineId)` and `listItems(pharmacyId)`.
+
+**Order.** Retries and take-over mean an older event can arrive after a newer one, so the last *arrival* does not
+win; the last *event time* does:
+
+* An event changes a field only if its time is not older than the field's stored time. Quantity and price are judged
+  separately, so a late price update is not blocked by a newer sale (and an older price still loses to a newer one).
+* Because `quantityAfter` is stored instead of applying deltas, a lost or reordered event heals itself with the next one.
+* A removed medicine is a tombstone: only a newer `MEDICINE_ADDED` brings it back. Older or newer sales, restocks and
+  price updates are ignored while it is removed.
+* Events with exactly equal times: the later arrival wins.
+* The result is the same for any arrival order of the same events (tested with several orderings).
+
+A stale event is still marked `done` (so it is not re-evaluated on every retry) and counted in `staleCount`; applied
+ones in `appliedCount`, both in `medlink:sync:{P001}`.
+
+**Not covered yet.** Reads by medicine across pharmacies ("who has M001?") need a cross-pharmacy index. Such a key
+cannot share the pharmacy hash tag, so it can't be written in the same atomic script; that is part of milestone 10
+(Redis Cluster).
 
 ## Failure behaviour (verified)
 

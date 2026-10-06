@@ -27,6 +27,17 @@ export const syncStatusKey = (pharmacyId: string, prefix = DEFAULT_KEY_PREFIX) =
 export const dedupKey = (pharmacyId: string, eventId: string, prefix = DEFAULT_KEY_PREFIX) =>
   `${prefix}:dedup:{${pharmacyId}}:${eventId}`;
 
+/**
+ * Current state of one medicine at one pharmacy (milestone 9): quantity, price and the event timestamps that
+ * decided them. Same hash tag as the pharmacy's other keys, so one script can touch all of them atomically.
+ */
+export const inventoryItemKey = (pharmacyId: string, medicineId: string, prefix = DEFAULT_KEY_PREFIX) =>
+  `${prefix}:inventory:{${pharmacyId}}:${medicineId}`;
+
+/** Set of the medicine ids a pharmacy currently lists (removed medicines are not in it). */
+export const inventoryIndexKey = (pharmacyId: string, prefix = DEFAULT_KEY_PREFIX) =>
+  `${prefix}:inventory:{${pharmacyId}}:index`;
+
 /** Extracts "P001" from "<prefix>:events:{P001}", or null for keys that aren't event streams. */
 export function pharmacyIdFromStreamKey(key: string): string | null {
   return /:events:\{(P\d{3,})\}$/.exec(key)?.[1] ?? null;

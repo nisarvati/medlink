@@ -49,9 +49,9 @@ return 0`;
  *
  * Result: an event is never skipped unless it was really handled, and handled events are not handled again.
  *
- * Limit: the marker and the handler's own writes are separate Redis calls. A crash between them can run the
- * handler a second time for that one event. Closing that gap needs the marker written in the same atomic step as
- * the state change, which is what the current-state model (milestone 9) will do.
+ * Limit: for a plain handler the marker and the handler's own writes are separate Redis calls, so a crash between
+ * them can run the handler a second time for that one event. A handler that sets `commitsDedupMarker` (the
+ * InventoryStateHandler) writes the marker in the same atomic script as its state change and has no such gap.
  */
 export class DedupHandler implements EventHandler {
   readonly stats = { duplicates: 0, inFlight: 0 };
@@ -80,11 +80,12 @@ export class DedupHandler implements EventHandler {
     }
 
     try {
-      await this.inner.handle(event, ctx);
+      await this.inner.handle(event, { ...ctx, dedupMarker: { key, retentionMs: this.opts.retentionMs } });
     } catch (err) {
       await this.redis.eval(RELEASE, 1, key).catch(() => undefined); // best effort; the lease expires anyway
       throw err;
     }
-    await this.redis.set(key, "done", "PX", this.opts.retentionMs);
+    // A handler that commits the marker atomically with its own writes leaves nothing to do here.
+    if (!this.inner.commitsDedupMarker) await this.redis.set(key, "done", "PX", this.opts.retentionMs);
   }
 }
