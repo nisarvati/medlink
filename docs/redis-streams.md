@@ -73,7 +73,9 @@ stateDiagram-v2
 | Fails `SYNC_MAX_DELIVERIES` times | Dead-lettered with code `MAX_DELIVERIES`, acknowledged, so it stops blocking. |
 | Entry trimmed from the stream while pending | Acknowledged and skipped. |
 
-A dead-letter entry records `stream`, `entryId`, `code`, `reason`, the original `payload` and `deadAt`.
+A dead-letter entry records `stream`, `group`, `entryId`, `code`, `reason`, the original `payload` and `deadAt`.
+`group` says which service gave up: every consumer group reads every event, so a poison event is dead-lettered once
+per group (`inventory-sync`, `restock-notifier`).
 
 ## Delivery guarantees
 

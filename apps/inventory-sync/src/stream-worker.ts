@@ -240,6 +240,7 @@ export class StreamWorker {
     await this.commands.xadd(
       deadLetterKey(this.opts.keyPrefix), "MAXLEN", "~", this.opts.deadLetterMaxLen, "*",
       "stream", this.streamKey,
+      "group", this.opts.group, // several services read the same streams; say which one gave up
       "entryId", entry.id,
       "code", code,
       "reason", reason,

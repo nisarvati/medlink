@@ -6,6 +6,7 @@ import type { Config } from "./config.js";
 import { errorHandler, notFoundHandler } from "./errors.js";
 import { inventoryRoutes } from "./modules/inventory/routes.js";
 import { medicineRoutes } from "./modules/medicines/routes.js";
+import { notificationRoutes } from "./modules/notifications/routes.js";
 import { pharmacyRoutes } from "./modules/pharmacies/routes.js";
 import { searchRoutes } from "./modules/search/routes.js";
 
@@ -21,7 +22,7 @@ export async function buildApp(db: Db, config: Config, opts: { logger?: boolean 
     },
   });
 
-  await app.register(cors, { origin: config.corsOrigins, methods: ["GET", "POST", "PATCH", "OPTIONS"] });
+  await app.register(cors, { origin: config.corsOrigins, methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"] });
 
   app.addHook("onSend", async (req, reply) => {
     reply.header("x-request-id", req.id);
@@ -45,6 +46,7 @@ export async function buildApp(db: Db, config: Config, opts: { logger?: boolean 
   pharmacyRoutes(app, db);
   inventoryRoutes(app, db, config);
   searchRoutes(app, db, config);
+  notificationRoutes(app, db);
 
   return app;
 }

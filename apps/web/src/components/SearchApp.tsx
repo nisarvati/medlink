@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError, searchMedicines, type Location, type SearchResult } from "../lib/api";
 import { DEFAULT_AREA } from "../lib/locations";
+import { loadSavedEmail, saveEmail, unavailableMedicines } from "../lib/restock";
 import { LocationPicker, type PickedLocation } from "./LocationPicker";
+import { NotificationInbox } from "./NotificationInbox";
+import { NotifyMe } from "./NotifyMe";
 import { ResultCard } from "./ResultCard";
 
 type State =
@@ -19,9 +22,16 @@ export function SearchApp() {
     location: { latitude: DEFAULT_AREA.latitude, longitude: DEFAULT_AREA.longitude },
   });
   const [state, setState] = useState<State>({ status: "idle" });
+  const [email, setEmail] = useState<string | null>(null);
   const inflight = useRef<AbortController | null>(null);
 
   useEffect(() => () => inflight.current?.abort(), []);
+  // Read after mount: the server render has no access to this device's storage.
+  useEffect(() => setEmail(loadSavedEmail()), []);
+  const onSubscribed = useCallback((address: string) => {
+    saveEmail(address);
+    setEmail(address.trim().toLowerCase());
+  }, []);
   const onLocation = useCallback((p: PickedLocation | null) => setPicked(p), []);
 
   async function onSubmit(e: FormEvent) {
@@ -113,6 +123,11 @@ export function SearchApp() {
             <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">
               {state.results.length} result{state.results.length === 1 ? "" : "s"} for “{state.query}”, ranked by availability, distance and price
             </p>
+            {unavailableMedicines(state.results).map(({ medicine, pharmacyCount }) => (
+              <div key={medicine.id} className="mb-3">
+                <NotifyMe medicine={medicine} pharmacyCount={pharmacyCount} savedEmail={email} onSubscribed={onSubscribed} />
+              </div>
+            ))}
             <ol className="space-y-3">
               {state.results.map((r) => (
                 <ResultCard key={`${r.medicine.id}-${r.pharmacy.id}`} result={r} origin={state.origin} best={r.rank === 1 && r.stockStatus !== "OUT_OF_STOCK"} />
@@ -124,6 +139,8 @@ export function SearchApp() {
           </>
         )}
       </section>
+
+      {email && <NotificationInbox email={email} />}
     </main>
   );
 }

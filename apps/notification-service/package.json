@@ -1,0 +1,19 @@
+{
+  "name": "@medlink/notification-service",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx --env-file-if-exists=../../.env src/main.ts"
+  },
+  "dependencies": {
+    "@medlink/db": "*",
+    "@medlink/event-schema": "*",
+    "@medlink/inventory-sync": "*",
+    "@medlink/redis": "*",
+    "pino": "^10.0.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

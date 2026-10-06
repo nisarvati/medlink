@@ -24,7 +24,8 @@
     "cluster:up": "docker compose --profile cluster up -d --wait redis-cluster-init",
     "cluster:down": "docker compose --profile cluster rm -sf redis-cluster-init redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5 redis-node-6",
     "test:cluster": "REDIS_MODE=cluster REDIS_CLUSTER_NODES=localhost:7001,localhost:7002,localhost:7003 REDIS_CLUSTER_NAT=local vitest run",
-    "sync:start": "npm run start -w @medlink/inventory-sync"
+    "sync:start": "npm run start -w @medlink/inventory-sync",
+    "notify:start": "npm run start -w @medlink/notification-service"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
