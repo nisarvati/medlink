@@ -3,6 +3,8 @@ import { dosagePattern, escapeLike, type MedicineQuery } from "./query.js";
 
 export interface Medicine {
   id: number;
+  /** Public code, e.g. "M001": how events and live stock refer to it. */
+  code: string;
   brandName: string;
   genericName: string;
   dosage: string;
@@ -13,6 +15,7 @@ export interface Medicine {
 
 interface MedicineRow {
   id: string;
+  code: string;
   brand_name: string;
   generic_name: string;
   dosage: string;
@@ -25,6 +28,7 @@ const RELEVANCE_BY_TIER = [1, 0.9, 0.8, 0.6, 0.4];
 
 const toMedicine = (r: MedicineRow): Medicine => ({
   id: Number(r.id),
+  code: r.code,
   brandName: r.brand_name,
   genericName: r.generic_name,
   dosage: r.dosage,
@@ -58,12 +62,40 @@ export async function searchMedicines(db: Db, q: MedicineQuery, limit = 20): Pro
     : "0";
 
   const { rows } = await db.query<MedicineRow>(
-    `SELECT id, brand_name, generic_name, dosage, form, ${relevance} AS relevance_rank
+    `SELECT id, code, brand_name, generic_name, dosage, form, ${relevance} AS relevance_rank
      FROM medicines
      WHERE ${where.join(" AND ")}
      ORDER BY relevance_rank, brand_name, dosage
      LIMIT ${add(limit)}`,
     params,
+  );
+  return rows.map(toMedicine);
+}
+
+export async function getMedicine(db: Db, id: number): Promise<Medicine | null> {
+  const { rows } = await db.query<MedicineRow>(
+    "SELECT id, code, brand_name, generic_name, dosage, form, 0 AS relevance_rank FROM medicines WHERE id = $1",
+    [id],
+  );
+  return rows[0] ? toMedicine(rows[0]) : null;
+}
+
+/** Other medicines with the same active ingredient (generic name), whatever the brand, strength or form. */
+export async function sameGeneric(db: Db, medicine: Medicine): Promise<Medicine[]> {
+  const { rows } = await db.query<MedicineRow>(
+    `SELECT id, code, brand_name, generic_name, dosage, form, 0 AS relevance_rank
+     FROM medicines WHERE lower(generic_name) = lower($1) AND id <> $2
+     ORDER BY brand_name, dosage`,
+    [medicine.genericName, medicine.id],
+  );
+  return rows.map(toMedicine);
+}
+
+export async function medicinesByCodes(db: Db, codes: string[]): Promise<Medicine[]> {
+  if (!codes.length) return [];
+  const { rows } = await db.query<MedicineRow>(
+    "SELECT id, code, brand_name, generic_name, dosage, form, 0 AS relevance_rank FROM medicines WHERE code = ANY($1::text[])",
+    [codes],
   );
   return rows.map(toMedicine);
 }

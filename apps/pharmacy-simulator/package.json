@@ -1,0 +1,20 @@
+{
+  "name": "@medlink/pharmacy-simulator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx --env-file-if-exists=../../.env src/main.ts"
+  },
+  "dependencies": {
+    "@medlink/db": "*",
+    "@medlink/event-schema": "*",
+    "@medlink/inventory-connector": "*",
+    "@medlink/inventory-sync": "*",
+    "@medlink/notification-service": "*",
+    "@medlink/redis": "*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

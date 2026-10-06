@@ -7,7 +7,7 @@ import {
   medicineIndexKey,
   syncStatusKey,
 } from "@medlink/event-schema";
-import { isCluster, type Redis } from "@medlink/redis";
+import { createRedis, isCluster, redisOptionsFromEnv, scanKeys, type Redis } from "@medlink/redis";
 import { connect, deleteKeys, newPrefix } from "./helpers.js";
 
 // These only mean something against a real cluster: REDIS_MODE=cluster (see docs/redis-streams.md).
@@ -59,6 +59,18 @@ describe.skipIf(!clusterMode)("Redis Cluster", () => {
 
   it("puts the medicine index in a different slot than the pharmacy's keys (why it is not in the atomic script)", async () => {
     expect(await slot(medicineIndexKey("M001", prefix))).not.toBe(await slot(inventoryItemKey("P001", "M001", prefix)));
+  });
+
+  it("scanKeys works on a client that was created a moment ago (before it has learned the cluster's nodes)", async () => {
+    const writer = connect();
+    await Promise.all(["a", "b", "c", "d", "e", "f"].map((k) => writer.set(`${prefix}:${k}`, "1"))); // spread over the shards
+    const fresh = createRedis({ ...redisOptionsFromEnv(), onError: () => undefined });
+    try {
+      expect((await scanKeys(fresh, `${prefix}:*`)).sort()).toEqual(["a", "b", "c", "d", "e", "f"].map((k) => `${prefix}:${k}`));
+    } finally {
+      fresh.disconnect();
+      writer.disconnect();
+    }
   });
 
   it("rejects a script that mixes slots, which is why every pharmacy key shares a hash tag", async () => {

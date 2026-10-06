@@ -20,6 +20,8 @@ export interface RedisOptions {
    * false (consumers): keep reconnecting and retrying forever.
    */
   failFast?: boolean;
+  /** A command that has not answered after this long fails (default: none). For callers that must not wait on Redis. */
+  commandTimeoutMs?: number;
   /** Called for connection errors. Always attached: an unhandled 'error' event would crash the process. */
   onError?: (err: Error) => void;
 }
@@ -44,11 +46,11 @@ export function createRedis(opts: RedisOptions): Redis {
       natMap: opts.cluster.natMap,
       clusterRetryStrategy: retryStrategy,
       // MOVED / ASK redirections and failover are retried by the client; this bounds how long a command may wait.
-      redisOptions: { connectionName: opts.name, maxRetriesPerRequest },
+      redisOptions: { connectionName: opts.name, maxRetriesPerRequest, commandTimeout: opts.commandTimeoutMs },
     }) as unknown as Redis;
   } else {
     if (!opts.url) throw new Error("createRedis needs `url` (standalone) or `cluster`");
-    client = new IORedis(opts.url, { connectionName: opts.name, maxRetriesPerRequest, retryStrategy });
+    client = new IORedis(opts.url, { connectionName: opts.name, maxRetriesPerRequest, retryStrategy, commandTimeout: opts.commandTimeoutMs });
   }
   client.on("error", (err) => opts.onError?.(err));
   return client;
@@ -85,9 +87,16 @@ function parseNode(s: string): { host: string; port: number } {
   return { host: m[1]!, port: Number(m[2]) };
 }
 
-/** The nodes that hold data: the one server for standalone, every master for a cluster. */
-function dataNodes(client: Redis): Redis[] {
-  return isCluster(client) ? ((client as unknown as Cluster).nodes("master") as unknown as Redis[]) : [client];
+/**
+ * The nodes that hold data: the one server for standalone, every master for a cluster.
+ * A cluster client that has only just been created lists its seed addresses until it has learned the real topology,
+ * and then closes those connections: asking for the nodes first would hand out handles that are about to be closed.
+ * Any command waits until the client is ready, so one is sent first.
+ */
+async function dataNodes(client: Redis): Promise<Redis[]> {
+  if (!isCluster(client)) return [client];
+  await client.ping();
+  return (client as unknown as Cluster).nodes("master") as unknown as Redis[];
 }
 
 /**
@@ -96,7 +105,7 @@ function dataNodes(client: Redis): Redis[] {
  */
 export async function scanKeys(client: Redis, pattern: string): Promise<string[]> {
   const found = new Set<string>();
-  for (const node of dataNodes(client)) {
+  for (const node of await dataNodes(client)) {
     let cursor = "0";
     do {
       const [next, keys] = await node.scan(cursor, "MATCH", pattern, "COUNT", 500);

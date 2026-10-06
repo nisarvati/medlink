@@ -25,17 +25,22 @@
     "cluster:down": "docker compose --profile cluster rm -sf redis-cluster-init redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5 redis-node-6",
     "test:cluster": "REDIS_MODE=cluster REDIS_CLUSTER_NODES=localhost:7001,localhost:7002,localhost:7003 REDIS_CLUSTER_NAT=local vitest run",
     "sync:start": "npm run start -w @medlink/inventory-sync",
-    "notify:start": "npm run start -w @medlink/notification-service"
+    "notify:start": "npm run start -w @medlink/notification-service",
+    "simulator": "npm run start -w @medlink/pharmacy-simulator --",
+    "demo": "npm run start -w @medlink/pharmacy-simulator -- --embedded demo"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.0",
     "eslint": "^9.0.0",
+    "jsdom": "^29.1.1",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "typescript-eslint": "^8.0.0",
     "vitest": "^2.1.0"
-  },
-  "dependencies": {}
+  }
 }

@@ -4,7 +4,9 @@ import { formatDistance, formatPrice, formatRelativeTime } from "./format";
 describe("formatPrice", () => {
   it("formats rupees, dropping .00", () => {
     expect(formatPrice(25)).toBe("₹25");
-    expect(formatPrice(23.5)).toBe("₹23.5");
+    expect(formatPrice(23.5)).toBe("₹23.50");
+    expect(formatPrice(218.4)).toBe("₹218.40");
+    expect(formatPrice(122.72)).toBe("₹122.72");
     expect(formatPrice(1250)).toBe("₹1,250");
   });
 });

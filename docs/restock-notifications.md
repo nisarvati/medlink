@@ -70,9 +70,10 @@ It runs next to `connector:start` and `sync:start` and works against a single Re
   pharmacy and the quantity.
 * **The API does not check that the medicine is really out of stock.** The web app only offers the button when it is.
   Checking in the API would need one trusted source of "available", see the next point.
-* **Search still reads the central Postgres `inventory`, which events do not update yet.** So after a restock the user
-  is notified, but the search results keep showing the old stock until the central database (or a later milestone's
-  Redis-backed search) catches up. The notification comes from the pharmacy's own event, not from that table.
+* **The notification comes from the pharmacy's own event, not from the search data.** Search now overlays live stock
+  from the same events (see `docs/frontend.md`), so after a restock the results and the notification agree within a
+  second or two. If live stock is unavailable, search falls back to the central database, which events do not update,
+  and says so on screen.
 * **The event's time is the pharmacy's clock** and is compared with the subscription's creation time in the central
   database. A pharmacy whose clock runs far behind could miss a subscriber made in that gap; they are notified at the
   next restock.
