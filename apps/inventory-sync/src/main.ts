@@ -1,5 +1,5 @@
 import { hostname } from "node:os";
-import { createRedis, describeError } from "@medlink/redis";
+import { createRedis, describeError, redisOptionsFromEnv } from "@medlink/redis";
 import { DEFAULT_DEDUP_OPTIONS, DedupHandler } from "./dedup.js";
 import { SyncStatusHandler } from "./handler.js";
 import { CompositeHandler, InventoryStateHandler } from "./state.js";
@@ -9,15 +9,17 @@ import { DEFAULT_SYNC_OPTIONS, SyncService } from "./service.js";
 const logger = createLogger(process.env.LOG_LEVEL ?? "info");
 const num = (name: string, fallback: number) => (process.env[name] ? Number(process.env[name]) : fallback);
 
-const redisUrl = process.env.REDIS_URL;
-if (!redisUrl) {
-  logger.error({}, "REDIS_URL is not set");
+let redisConnection: ReturnType<typeof redisOptionsFromEnv>;
+try {
+  redisConnection = redisOptionsFromEnv();
+} catch (err) {
+  logger.error({ error: describeError(err) }, "invalid Redis configuration");
   process.exit(1);
 }
 
 const keyPrefix = process.env.REDIS_KEY_PREFIX;
 const redis = createRedis({
-  url: redisUrl,
+  ...redisConnection,
   name: "inventory-sync",
   onError: (err) => logger.error({ error: describeError(err) }, "redis connection error"),
 });

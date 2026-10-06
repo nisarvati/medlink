@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { createPool, setupPharmacyDatabase, type Db } from "@medlink/db";
 import { freshPharmacyDbs, freshSeededDb } from "@medlink/db/testing";
 import { deadLetterKey, eventStreamKey, syncStatusKey } from "@medlink/event-schema";
-import { createRedis, type Redis } from "@medlink/redis";
+import { createRedis, deleteAll, redisOptionsFromEnv, scanKeys, type Redis } from "@medlink/redis";
 import { InventoryConnector, RedisStreamPublisher, silentLogger as connectorLog } from "@medlink/inventory-connector";
 import { SyncService, SyncStatusHandler, silentLogger as syncLog } from "@medlink/inventory-sync";
 
@@ -41,8 +41,8 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   prefix = `test-${randomUUID().slice(0, 8)}`;
-  producerRedis = createRedis({ url: process.env.REDIS_URL!, failFast: true, onError: () => undefined });
-  consumerRedis = createRedis({ url: process.env.REDIS_URL!, onError: () => undefined });
+  producerRedis = createRedis({ ...redisOptionsFromEnv(), failFast: true, onError: () => undefined });
+  consumerRedis = createRedis({ ...redisOptionsFromEnv(), onError: () => undefined });
   await setupPharmacyDatabase("P001", urls.P001!);
   await pharmacyA.query("TRUNCATE outbox");
 
@@ -64,8 +64,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await connector.stop();
   await sync.stop();
-  const keys = await consumerRedis.keys(`${prefix}:*`);
-  if (keys.length) await consumerRedis.del(...keys);
+  await deleteAll(consumerRedis, await scanKeys(consumerRedis, `${prefix}:*`));
   producerRedis.disconnect();
   consumerRedis.disconnect();
 });

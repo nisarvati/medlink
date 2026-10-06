@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { createPool, setupPharmacyDatabase, type Db } from "@medlink/db";
 import { freshPharmacyDbs, freshSeededDb } from "@medlink/db/testing";
 import { eventStreamKey, parseInventoryEvent, STREAM_EVENT_FIELD, streamRegistryKey, type InventoryEvent } from "@medlink/event-schema";
-import { createRedis, type Redis } from "@medlink/redis";
+import { createRedis, deleteAll, redisOptionsFromEnv, scanKeys, type Redis } from "@medlink/redis";
 import { InventoryConnector } from "../src/connector.js";
 import { silentLogger } from "../src/logger.js";
 import { RedisStreamPublisher } from "../src/redis-publisher.js";
@@ -11,10 +11,6 @@ import { RedisStreamPublisher } from "../src/redis-publisher.js";
 let redis: Redis;
 let prefix: string;
 
-const url = () => {
-  if (!process.env.REDIS_URL) throw new Error("REDIS_URL is not set");
-  return process.env.REDIS_URL;
-};
 const makeEvent = (over: Partial<Record<string, unknown>> = {}) =>
   ({
     schemaVersion: 1,
@@ -30,12 +26,11 @@ const makeEvent = (over: Partial<Record<string, unknown>> = {}) =>
   }) as InventoryEvent;
 
 beforeEach(() => {
-  redis = createRedis({ url: url(), failFast: true, onError: () => undefined });
+  redis = createRedis({ ...redisOptionsFromEnv(), failFast: true, onError: () => undefined });
   prefix = `test-${randomUUID().slice(0, 8)}`;
 });
 afterEach(async () => {
-  const keys = await redis.keys(`${prefix}:*`);
-  if (keys.length) await redis.del(...keys);
+  await deleteAll(redis, await scanKeys(redis, `${prefix}:*`));
   redis.disconnect();
 });
 

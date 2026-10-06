@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { dedupKey, eventStreamKey, inventoryItemKey, syncStatusKey } from "@medlink/event-schema";
+import { dedupKey, eventStreamKey, inventoryItemKey, medicineIndexKey, syncStatusKey } from "@medlink/event-schema";
 import type { Redis } from "@medlink/redis";
 import { DedupHandler } from "../src/dedup.js";
 import type { HandlerContext } from "../src/handler.js";
@@ -160,5 +160,45 @@ describe("state in the running service", () => {
     expect(dedup.stats.duplicates).toBe(1);
     expect(await pendingCount(redis, eventStreamKey("P001", prefix))).toBe(0);
     expect(await redis.exists(inventoryItemKey("P001", "M001", prefix))).toBe(1);
+  });
+});
+
+describe("cross-pharmacy lookup (who has this medicine?)", () => {
+  const sale = (pharmacyId: string, q: number, t: number) => ev({ pharmacyId, quantityAfter: q, quantityDelta: -1, timestamp: at(t) });
+
+  it("lists every pharmacy that stocks a medicine, with its own quantity and price", async () => {
+    await state.handle(sale("P001", 5, 1), ctx);
+    await state.handle(ev({ pharmacyId: "P002", eventType: "MEDICINE_ADDED", quantityDelta: 8, quantityAfter: 8, price: 30, timestamp: at(1) }), ctx);
+    await state.handle(sale("P003", 0, 1), ctx);
+    await state.handle(ev({ medicineId: "M002", pharmacyId: "P001", quantityAfter: 1, quantityDelta: -1, timestamp: at(1) }), ctx);
+
+    const found = await state.pharmaciesWithMedicine("M001");
+    expect(found.map((i) => [i.pharmacyId, i.quantity])).toEqual([["P001", 5], ["P002", 8], ["P003", 0]]);
+    expect(found.find((i) => i.pharmacyId === "P002")?.price).toBe(30);
+    expect((await state.pharmaciesWithMedicine("M002")).map((i) => i.pharmacyId)).toEqual(["P001"]);
+    expect(await state.pharmaciesWithMedicine("M404")).toEqual([]);
+  });
+
+  it("drops a pharmacy that removed the medicine, and brings it back when the medicine is added again", async () => {
+    await state.handle(sale("P001", 5, 1), ctx);
+    await state.handle(sale("P002", 5, 1), ctx);
+    await state.handle(ev({ pharmacyId: "P002", eventType: "MEDICINE_REMOVED", quantityDelta: -5, quantityAfter: 0, price: undefined, timestamp: at(2) }), ctx);
+    expect((await state.pharmaciesWithMedicine("M001")).map((i) => i.pharmacyId)).toEqual(["P001"]);
+    await state.handle(ev({ pharmacyId: "P002", eventType: "MEDICINE_ADDED", quantityDelta: 3, quantityAfter: 3, price: 9, timestamp: at(3) }), ctx);
+    expect((await state.pharmaciesWithMedicine("M001")).map((i) => i.pharmacyId)).toEqual(["P001", "P002"]);
+  });
+
+  it("ignores an index entry that has no state behind it (a crash between the index write and the state change)", async () => {
+    await state.handle(sale("P001", 5, 1), ctx);
+    await redis.sadd(medicineIndexKey("M001", prefix), "P009"); // index written, state change never happened
+    expect((await state.pharmaciesWithMedicine("M001")).map((i) => i.pharmacyId)).toEqual(["P001"]);
+  });
+
+  it("a redelivery after such a crash completes the state change and the index stays correct", async () => {
+    const e = sale("P001", 7, 1);
+    await redis.sadd(medicineIndexKey("M001", prefix), "P001");
+    await state.handle(e, ctx);
+    await state.handle(e, ctx); // replay: index write is idempotent, state change is stale-safe
+    expect((await state.pharmaciesWithMedicine("M001")).map((i) => [i.pharmacyId, i.quantity])).toEqual([["P001", 7]]);
   });
 });

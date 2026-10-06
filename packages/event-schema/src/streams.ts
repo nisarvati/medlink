@@ -38,6 +38,15 @@ export const inventoryItemKey = (pharmacyId: string, medicineId: string, prefix 
 export const inventoryIndexKey = (pharmacyId: string, prefix = DEFAULT_KEY_PREFIX) =>
   `${prefix}:inventory:{${pharmacyId}}:index`;
 
+/**
+ * Which pharmacies may stock a medicine (milestone 10). Hash-tagged by the MEDICINE, so it lives in a different
+ * slot than the pharmacy keys and cannot be part of their atomic script. It is therefore a superset hint, never the
+ * truth: it is written before the pharmacy's state change (a crash can leave an extra entry, never a missing one),
+ * and readers check each pharmacy's own item before trusting an entry.
+ */
+export const medicineIndexKey = (medicineId: string, prefix = DEFAULT_KEY_PREFIX) =>
+  `${prefix}:medicine:{${medicineId}}:pharmacies`;
+
 /** Extracts "P001" from "<prefix>:events:{P001}", or null for keys that aren't event streams. */
 export function pharmacyIdFromStreamKey(key: string): string | null {
   return /:events:\{(P\d{3,})\}$/.exec(key)?.[1] ?? null;

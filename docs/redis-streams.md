@@ -1,8 +1,8 @@
 # Redis Streams: event transport and consumer-group design
 
-This describes what is implemented today (milestones 7 to 9). The sync service **receives, validates, de-duplicates,
+This describes what is implemented today (milestones 7 to 10). The sync service **receives, validates, de-duplicates,
 acknowledges and reports on** events, and **applies them to a current-state model in Redis** (stock and price per
-pharmacy and medicine).
+pharmacy and medicine). It runs against a single Redis or a Redis Cluster (see "Redis Cluster").
 
 ```mermaid
 flowchart LR
@@ -25,9 +25,10 @@ flowchart LR
 | `medlink:dedup:{P001}:<eventId>` | string | Duplicate marker, `processing` or `done` (see "Duplicate protection"). |
 | `medlink:inventory:{P001}:M001` | hash | Current state of one medicine at one pharmacy (see "Current state"). |
 | `medlink:inventory:{P001}:index` | set | Medicine ids the pharmacy currently lists. |
+| `medlink:medicine:{M001}:pharmacies` | set | Pharmacies that may stock a medicine (a hint, see "Looking up a medicine"). |
 
 `medlink` is a configurable prefix (`REDIS_KEY_PREFIX`). The pharmacy code is a Redis hash tag (`{P001}`), so in Redis
-Cluster (milestone 10) all keys of one pharmacy hash to the same slot. Key names live in one place:
+Cluster all keys of one pharmacy hash to the same slot. Key names live in one place:
 `packages/event-schema/src/streams.ts`.
 
 ## Why one stream per pharmacy
@@ -141,9 +142,60 @@ win; the last *event time* does:
 A stale event is still marked `done` (so it is not re-evaluated on every retry) and counted in `staleCount`; applied
 ones in `appliedCount`, both in `medlink:sync:{P001}`.
 
-**Not covered yet.** Reads by medicine across pharmacies ("who has M001?") need a cross-pharmacy index. Such a key
-cannot share the pharmacy hash tag, so it can't be written in the same atomic script; that is part of milestone 10
-(Redis Cluster).
+### Looking up a medicine across pharmacies
+
+`pharmaciesWithMedicine("M001")` returns every pharmacy that lists the medicine, with its quantity and price.
+
+The index behind it, `medlink:medicine:{M001}:pharmacies`, is hash-tagged by the *medicine*, so it lives in a
+different slot than the pharmacy keys and **cannot be part of the atomic script**. It is therefore only a hint
+("may stock"); the pharmacy's own item hash is the truth. The rules that keep it safe:
+
+* It is written **before** the state change, so a crash can leave an extra entry but never a missing one. A redelivery
+  repeats the (idempotent) `SADD`.
+* Entries are **never removed** on the write path. A removal racing with a newer re-add on another consumer could
+  otherwise drop a real entry. Readers look at each pharmacy's item and skip removed or unknown ones.
+* The cost is one read per pharmacy in the set, each in its own slot. The set only grows (pharmacies x medicines
+  they ever stocked), which is small; it can be rebuilt from the pharmacy indexes if it is ever lost.
+
+## Redis Cluster (milestone 10)
+
+Set `REDIS_MODE=cluster` and `REDIS_CLUSTER_NODES=host:port,...` (seed nodes; one reachable node is enough) and the
+connector and sync service use an ioredis `Cluster` client. Without it they use `REDIS_URL` as before. No handler
+code differs between the two.
+
+**Why it works without changes.** Every key of one pharmacy carries the hash tag `{P001}`: its stream, status, dedup
+markers, item hashes and index. They share one slot, so the Lua scripts (dedup lease, state change plus marker) are
+legal on a cluster, and a pharmacy's events stay in order on one shard. Different pharmacies spread over the shards.
+Single-key operations on shared keys (`medlink:streams`, `medlink:events:dlq`) are fine too, but each lives on one
+shard, so the dead-letter stream is not sharded.
+
+**Local cluster.** `npm run cluster:up` starts 3 masters and 3 replicas (ports 7001 to 7006) and creates the
+cluster; running it again is harmless. `npm run cluster:down` removes the containers (data volumes are kept).
+Nodes announce their service name (`redis-node-1:7001`), which only the compose network can resolve, so from the
+host set `REDIS_CLUSTER_NAT=local`: it maps those names to `127.0.0.1:700x`. Against a real cluster that announces
+reachable addresses, leave it unset.
+
+**Tests.** `npm run test:cluster` runs the whole suite against the cluster (the same tests, plus
+`apps/inventory-sync/test/cluster.test.ts`: one slot per pharmacy, pharmacies spread over several masters, a script
+mixing slots is rejected). `npm test` keeps using the standalone Redis.
+
+**Verified live (failover).** Sync service running against the cluster, 300 events published over 5 pharmacies, and
+node-1 (a master holding three of them) stopped one second in. Its replica was promoted, the producer stalled about
+9 s and retried 26 times, and all 300 events were applied: correct final stock for every pharmacy, nothing
+dead-lettered. The stopped node came back as a replica. Duplicate deliveries did not occur in that run, so the
+dedup path under failover is covered by the dedup tests, not by this run.
+
+**Things to know.**
+
+* A cluster client cannot run multi-key commands across slots: `KEYS`, multi-key `DEL`, cross-pharmacy
+  `MULTI`. Use `scanKeys` / `deleteAll` from `@medlink/redis`, which scan every master and delete key by key.
+* During a failover, commands to the affected shard fail or wait until a replica is promoted (about 5 to 10 s with
+  `cluster-node-timeout 5000`). The sync service keeps retrying; the connector fails fast and keeps events in the
+  outbox, as it does when Redis is down.
+* Replication is asynchronous: a master that dies can lose its last acknowledged writes before the replica has
+  them. For events this is the same at-least-once story as before (the outbox row is only marked published after
+  `XADD`, but an `XADD` lost with a dying master was acknowledged). Closing it needs `WAIT` or a reconcile from the
+  pharmacy databases; neither is done yet.
 
 ## Failure behaviour (verified)
 

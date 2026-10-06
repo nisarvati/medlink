@@ -2,6 +2,7 @@ import {
   dedupKey,
   inventoryIndexKey,
   inventoryItemKey,
+  medicineIndexKey,
   syncStatusKey,
   type InventoryEvent,
 } from "@medlink/event-schema";
@@ -117,6 +118,11 @@ export class InventoryStateHandler implements EventHandler {
 
   async apply(event: InventoryEvent, marker?: { key: string; retentionMs: number }): Promise<ApplyResult> {
     const { keyPrefix } = this.opts;
+    // Cross-pharmacy index first, in its own slot, so it can never be missing an entry the state has. If we crash
+    // before the state change, the retry repeats this (SADD is idempotent); the extra entry is filtered on read.
+    if (event.eventType !== "MEDICINE_REMOVED") {
+      await this.redis.sadd(medicineIndexKey(event.medicineId, keyPrefix), event.pharmacyId);
+    }
     const quantity = "quantityAfter" in event && event.quantityAfter !== undefined ? String(event.quantityAfter) : "";
     const price = "price" in event && event.price !== undefined ? String(event.price) : "";
     const code = Number(
@@ -145,6 +151,17 @@ export class InventoryStateHandler implements EventHandler {
     const h = await this.redis.hgetall(inventoryItemKey(pharmacyId, medicineId, this.opts.keyPrefix));
     if (!h.quantityTs && !h.priceTs) return null;
     return toItem(pharmacyId, medicineId, h);
+  }
+
+  /**
+   * Every pharmacy that currently lists a medicine, with its stock and price. The index only says "may stock";
+   * each pharmacy's own item decides, so entries for removed or unknown items are skipped.
+   * Reads one key per pharmacy (each in its own slot), so it costs one round trip per pharmacy in the index.
+   */
+  async pharmaciesWithMedicine(medicineId: string): Promise<InventoryItem[]> {
+    const ids = (await this.redis.smembers(medicineIndexKey(medicineId, this.opts.keyPrefix))).sort();
+    const items = await Promise.all(ids.map((id) => this.getItem(id, medicineId)));
+    return items.filter((i): i is InventoryItem => i !== null && !i.removed);
   }
 
   /** All medicines a pharmacy currently lists. */

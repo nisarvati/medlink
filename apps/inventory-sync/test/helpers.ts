@@ -1,21 +1,19 @@
 import { randomUUID } from "node:crypto";
 import { eventStreamKey, STREAM_EVENT_FIELD, streamRegistryKey, type InventoryEvent } from "@medlink/event-schema";
-import { createRedis, type Redis } from "@medlink/redis";
+import { createRedis, deleteAll, redisOptionsFromEnv, scanKeys, type Redis } from "@medlink/redis";
 
 export const GROUP = "inventory-sync";
 
 export function connect(): Redis {
-  const url = process.env.REDIS_URL;
-  if (!url) throw new Error("REDIS_URL is not set (copy .env.example to .env and run `npm run infra:up`)");
-  return createRedis({ url, onError: () => undefined });
+  // Standalone by default; REDIS_MODE=cluster runs the same tests against the compose cluster.
+  return createRedis({ ...redisOptionsFromEnv(), onError: () => undefined });
 }
 
 /** Every test uses its own key prefix, so tests never touch each other's or development data. */
 export const newPrefix = () => `test-${randomUUID().slice(0, 8)}`;
 
 export async function deleteKeys(redis: Redis, prefix: string): Promise<void> {
-  const keys = await redis.keys(`${prefix}:*`);
-  if (keys.length) await redis.del(...keys);
+  await deleteAll(redis, await scanKeys(redis, `${prefix}:*`));
 }
 
 let counter = 0;

@@ -1,14 +1,16 @@
 import { createPool, loadPharmacyUrls, PHARMACY_CODES } from "@medlink/db";
-import { createRedis, describeError } from "@medlink/redis";
+import { createRedis, describeError, redisOptionsFromEnv } from "@medlink/redis";
 import { InventoryConnector } from "./connector.js";
 import { createLogger } from "./logger.js";
 import { RedisStreamPublisher } from "./redis-publisher.js";
 
 const logger = createLogger(process.env.LOG_LEVEL ?? "info");
 
-const redisUrl = process.env.REDIS_URL;
-if (!redisUrl) {
-  logger.error({}, "REDIS_URL is not set");
+let redisConnection: ReturnType<typeof redisOptionsFromEnv>;
+try {
+  redisConnection = redisOptionsFromEnv();
+} catch (err) {
+  logger.error({ error: describeError(err) }, "invalid Redis configuration");
   process.exit(1);
 }
 
@@ -25,7 +27,7 @@ if (unknown.length) {
 const urls = loadPharmacyUrls();
 // Fail fast when Redis is unreachable: the outbox keeps the events, and the connector retries with backoff.
 const redis = createRedis({
-  url: redisUrl,
+  ...redisConnection,
   name: "inventory-connector",
   failFast: true,
   onError: (err) => logger.error({ error: describeError(err) }, "redis connection error"),
