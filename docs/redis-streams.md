@@ -2,7 +2,7 @@
 
 This describes what is implemented today (milestone 7). The sync service **receives, validates, acknowledges and
 reports on** events. It does **not** yet apply them to inventory state: that needs duplicate protection first
-(milestone 8) and then the Redis current-state model (milestone 9).
+(milestone 8, now added as `DedupHandler`) and then the Redis current-state model (milestone 9).
 
 ```mermaid
 flowchart LR
@@ -76,9 +76,37 @@ A dead-letter entry records `stream`, `entryId`, `code`, `reason`, the original 
 * **Connector to Redis: at-least-once.** A row leaves the pharmacy outbox only after `XADD` succeeded. A crash between
   `XADD` and marking the row published sends the same event again, with the same `eventId`.
 * **Redis to handler: at-least-once.** Retries and crash take-over can deliver an entry more than once.
-* Therefore **handlers must tolerate duplicates**. The M7 status handler only records "last event"; the M8 inventory
-  handler will de-duplicate on `eventId`.
+* Therefore **handlers must tolerate duplicates**. Milestone 8 adds `DedupHandler`, which wraps any handler and
+  skips events whose `eventId` was already handled (see "Duplicate protection").
 * **Ordering** holds per pharmacy for first deliveries. A retried entry can be processed after later entries.
+
+## Duplicate protection (milestone 8)
+
+`DedupHandler` keeps one marker per event, `medlink:dedup:{P001}:<eventId>`, in two states:
+
+| State | Written | Lifetime | Meaning |
+|---|---|---|---|
+| `processing` | before the handler runs | lease, `SYNC_DEDUP_LEASE_MS` (30 s) | one delivery is handling it; expires by itself if that consumer dies |
+| `done` | only after the handler succeeded | `SYNC_DEDUP_RETENTION_HOURS` (168 h) | handled; later deliveries are acknowledged and skipped |
+
+| Delivery finds | Behaviour |
+|---|---|
+| no marker | take the lease, run the handler, write `done`, `XACK` |
+| `done` | skip, count in `duplicateCount` of `medlink:sync:{P001}`, `XACK` |
+| `processing` | throw `EventInFlightError`; not acknowledged, retried after `SYNC_MIN_IDLE_MS` |
+| handler throws | lease released so the retry runs at once; entry retried as before |
+
+Marking `done` *before* handling (plain `SET NX`) was rejected: a crash right after it would make every retry look
+like a duplicate and the event would be lost. Take care that `SYNC_DEDUP_LEASE_MS` stays below
+`SYNC_MIN_IDLE_MS * SYNC_MAX_DELIVERIES`, otherwise a crashed consumer's event can be dead-lettered while its lease
+is still held.
+
+**Retention must be longer than any way a duplicate can still arrive**: outbox republish after a connector crash,
+retry of a pending entry, and stream retention. After that window an old `eventId` is treated as new.
+
+**Known gap:** the marker and the handler's own writes are separate Redis calls. A crash between them can run the
+handler twice for that one event. Closing it needs the marker written in the same atomic step as the state change,
+which the current-state model (milestone 9) will do.
 
 ## Failure behaviour (verified)
 

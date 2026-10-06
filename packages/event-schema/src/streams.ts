@@ -20,6 +20,13 @@ export const deadLetterKey = (prefix = DEFAULT_KEY_PREFIX) => `${prefix}:events:
 /** Per-pharmacy synchronization status (last event, last sync time, counters). */
 export const syncStatusKey = (pharmacyId: string, prefix = DEFAULT_KEY_PREFIX) => `${prefix}:sync:{${pharmacyId}}`;
 
+/**
+ * Marker for one event id, used to ignore duplicate deliveries (milestone 8). Same hash tag as the pharmacy's
+ * other keys. Value is "processing" (short lease) or "done" (kept for the retention period).
+ */
+export const dedupKey = (pharmacyId: string, eventId: string, prefix = DEFAULT_KEY_PREFIX) =>
+  `${prefix}:dedup:{${pharmacyId}}:${eventId}`;
+
 /** Extracts "P001" from "<prefix>:events:{P001}", or null for keys that aren't event streams. */
 export function pharmacyIdFromStreamKey(key: string): string | null {
   return /:events:\{(P\d{3,})\}$/.exec(key)?.[1] ?? null;

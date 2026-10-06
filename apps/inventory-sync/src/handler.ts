@@ -18,7 +18,8 @@ export interface EventHandler {
 
 /**
  * Records per-pharmacy synchronization status: what was the last event and when did we last sync.
- * It does not touch inventory state; applying events to stock levels needs duplicate protection first (M8).
+ * It does not touch inventory state. Duplicate protection is provided by wrapping a handler in `DedupHandler` (M8);
+ * applying events to stock levels comes with the current-state model (M9).
  */
 export class SyncStatusHandler implements EventHandler {
   constructor(
