@@ -7,6 +7,7 @@
     "start": "node --import tsx --env-file-if-exists=../../.env src/main.ts"
   },
   "dependencies": {
+    "@medlink/db": "*",
     "@medlink/event-schema": "*",
     "@medlink/redis": "*",
     "pino": "^10.0.0"

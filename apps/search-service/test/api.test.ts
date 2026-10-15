@@ -23,7 +23,6 @@ afterAll(async () => {
 
 const someInventoryId = async () => Number((await db.query("SELECT max(id) AS id FROM inventory")).rows[0].id);
 const get = (url: string) => app.inject({ method: "GET", url });
-const send = (method: "POST" | "PATCH", url: string, payload: unknown) => app.inject({ method, url, payload: payload as object });
 
 describe("health", () => {
   it("reports ok when the database is reachable", async () => {
@@ -115,67 +114,11 @@ describe("inventory API", () => {
     expect((await get("/api/inventory?medicineId=abc")).statusCode).toBe(400);
   });
 
-  it("creates an inventory row (201) and rejects duplicates (409)", async () => {
-    await db.query("DELETE FROM inventory WHERE pharmacy_id = (SELECT min(id) FROM pharmacies) AND medicine_id = (SELECT min(id) FROM medicines)");
-    const [{ pid, mid }] = (await db.query("SELECT (SELECT min(id) FROM pharmacies)::int AS pid, (SELECT min(id) FROM medicines)::int AS mid")).rows;
-    const res = await send("POST", "/api/inventory", { pharmacyId: pid, medicineId: mid, quantity: 12, price: 30.5 });
-    expect(res.statusCode).toBe(201);
-    expect(res.json().data).toMatchObject({ quantity: 12, price: 30.5, stockStatus: "IN_STOCK" });
-    const dup = await send("POST", "/api/inventory", { pharmacyId: pid, medicineId: mid, quantity: 1, price: 1 });
-    expect(dup.statusCode).toBe(409);
-  });
-
-  it("returns 404 for unknown pharmacy or medicine on create", async () => {
-    const res = await send("POST", "/api/inventory", { pharmacyId: 99999, medicineId: 1, quantity: 1, price: 1 });
-    expect(res.statusCode).toBe(404);
-    expect(res.body).not.toMatch(/violates|constraint|inventory_/);
-  });
-
-  it("rejects invalid bodies", async () => {
-    const bad = [
-      { pharmacyId: 1, medicineId: 1, quantity: -1, price: 10 },
-      { pharmacyId: 1, medicineId: 1, quantity: 1.5, price: 10 },
-      { pharmacyId: 1, medicineId: 1, quantity: 1, price: 0 },
-      { pharmacyId: 1, medicineId: 1, quantity: 1, price: -5 },
-      { pharmacyId: 1, medicineId: 1, quantity: 1, price: 10.123 },
-      { pharmacyId: 1, medicineId: 1, quantity: 1 },
-      { pharmacyId: 1, medicineId: 1, quantity: 1, price: 10, extra: true },
-    ];
-    for (const body of bad) {
-      const res = await send("POST", "/api/inventory", body);
-      expect(res.statusCode, JSON.stringify(body)).toBe(400);
-      expect(res.json().error.code).toBe("VALIDATION_ERROR");
-    }
-  });
-
-  it("returns 400 for malformed JSON", async () => {
-    const res = await app.inject({ method: "POST", url: "/api/inventory", headers: { "content-type": "application/json" }, payload: "{nope" });
-    expect(res.statusCode).toBe(400);
-    expect(res.json().error.code).toBe("BAD_REQUEST");
-  });
-
-  it("patches quantity and price and bumps updatedAt", async () => {
+  it("is read-only: stock is changed through the pharmacy portal, which goes through the event pipeline", async () => {
     const id = await someInventoryId();
-    const before = (await get(`/api/inventory/${id}`)).json().data;
-    const res = await send("PATCH", `/api/inventory/${id}`, { quantity: 0, price: 99.99 });
-    expect(res.statusCode).toBe(200);
-    expect(res.json().data).toMatchObject({ quantity: 0, price: 99.99, stockStatus: "OUT_OF_STOCK" });
-    expect(Date.parse(res.json().data.updatedAt)).toBeGreaterThanOrEqual(Date.parse(before.updatedAt));
-  });
-
-  it("patches a single field without touching the other", async () => {
-    const id = await someInventoryId();
-    const before = (await get(`/api/inventory/${id}`)).json().data;
-    const res = await send("PATCH", `/api/inventory/${id}`, { quantity: 7 });
-    expect(res.json().data).toMatchObject({ quantity: 7, price: before.price });
-  });
-
-  it("rejects empty or invalid patches, and 404s for unknown ids", async () => {
-    const id = await someInventoryId();
-    expect((await send("PATCH", `/api/inventory/${id}`, {})).statusCode).toBe(400);
-    expect((await send("PATCH", `/api/inventory/${id}`, { quantity: -3 })).statusCode).toBe(400);
-    expect((await send("PATCH", "/api/inventory/abc", { quantity: 1 })).statusCode).toBe(400);
-    expect((await send("PATCH", "/api/inventory/999999", { quantity: 1 })).statusCode).toBe(404);
+    expect((await app.inject({ method: "POST", url: "/api/inventory", payload: { pharmacyId: 1, medicineId: 1, quantity: 1, price: 1 } })).statusCode).toBe(404);
+    expect((await app.inject({ method: "PATCH", url: `/api/inventory/${id}`, payload: { quantity: 0 } })).statusCode).toBe(404);
+    expect((await get(`/api/inventory/${id}`)).statusCode).toBe(200);
   });
 });
 

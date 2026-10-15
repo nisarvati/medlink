@@ -227,3 +227,32 @@ describe("naming things", () => {
     expect(() => resolveMedicine("c")).toThrow(/several medicines/); // Crocin, Calpol, Combiflam, Cetzine
   });
 });
+
+describe("setQuantity", () => {
+  it("records a SALE when the count is lower than the books", async () => {
+    const r = await sim.setQuantity(P, "M001", 2);
+    expect(r).toMatchObject({ action: "set", before: { quantity: 5 }, after: { quantity: 2 } });
+    expect(await outbox()).toMatchObject([{ event_type: "SALE", quantity_delta: -3, quantity_after: 2 }]);
+  });
+
+  it("records a RESTOCK when the count is higher", async () => {
+    await sim.setQuantity(P, "M001", 12);
+    expect(await outbox()).toMatchObject([{ event_type: "RESTOCK", quantity_delta: 7, quantity_after: 12 }]);
+  });
+
+  it("can count down to zero, and records nothing when the count matches", async () => {
+    await sim.setQuantity(P, "M001", 5);
+    expect(await outbox()).toHaveLength(0);
+    await sim.setQuantity(P, "M001", 0);
+    expect((await row("M001")).quantity).toBe(0);
+  });
+
+  it("refuses a bad count or a medicine the pharmacy does not carry, and changes nothing", async () => {
+    expect((await refused((async () => sim.setQuantity(P, "M001", -1))())).code).toBe("INVALID");
+    expect((await refused((async () => sim.setQuantity(P, "M001", 1.5))())).code).toBe("INVALID");
+    await db.query("DELETE FROM inventory WHERE medicine_code = 'M002'");
+    await db.query("TRUNCATE outbox");
+    expect((await refused(sim.setQuantity(P, "M002", 3))).code).toBe("NOT_STOCKED");
+    expect(await outbox()).toHaveLength(0);
+  });
+});

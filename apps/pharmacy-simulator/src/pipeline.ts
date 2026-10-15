@@ -1,6 +1,6 @@
 import type { Db } from "@medlink/db";
 import { InventoryConnector, RedisStreamPublisher, silentLogger as connectorLogger } from "@medlink/inventory-connector";
-import { createSyncHandler, InventoryStateHandler, SyncService, silentLogger, type SyncOptions } from "@medlink/inventory-sync";
+import { CatalogueMirror, createSyncHandler, InventoryStateHandler, SyncService, silentLogger, type SyncOptions } from "@medlink/inventory-sync";
 import { MockNotifier, NotificationService } from "@medlink/notification-service";
 import { createRedis, redisOptionsFromEnv, type Redis } from "@medlink/redis";
 
@@ -24,6 +24,8 @@ export interface EmbeddedOptions {
   keyPrefix?: string;
   redis?: ReturnType<typeof redisOptionsFromEnv>;
   pollIntervalMs?: number;
+  /** With `central`: also copy applied changes into its inventory table, as the sync service does when it has DATABASE_URL. */
+  mirrorToCentral?: boolean;
   /** Overrides for the sync services (tests use short timings). */
   sync?: Partial<SyncOptions>;
   sweepIntervalMs?: number;
@@ -46,7 +48,10 @@ export async function startEmbeddedPipeline(opts: EmbeddedOptions): Promise<Embe
   const connectors = Object.entries(opts.pharmacies).map(
     ([code, db]) => new InventoryConnector({ pharmacyId: code, db, publisher, logger: connectorLogger, pollIntervalMs: opts.pollIntervalMs ?? 50 }),
   );
-  const { handler, state } = createSyncHandler(consumer, { keyPrefix: opts.keyPrefix });
+  const { handler, state } = createSyncHandler(consumer, {
+    keyPrefix: opts.keyPrefix,
+    ...(opts.central && opts.mirrorToCentral && { mirror: new CatalogueMirror(opts.central) }),
+  });
   const sync = new SyncService(consumer, handler, silentLogger, { keyPrefix: opts.keyPrefix, discoveryIntervalMs: 100, ...opts.sync });
 
   const notifier = opts.central ? new MockNotifier(silentLogger) : null;

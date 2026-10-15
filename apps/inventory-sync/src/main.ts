@@ -1,8 +1,10 @@
 import { hostname } from "node:os";
+import { createPool } from "@medlink/db";
 import { createRedis, describeError, redisOptionsFromEnv } from "@medlink/redis";
 import { DEFAULT_DEDUP_OPTIONS } from "./dedup.js";
 import { createSyncHandler } from "./handlers.js";
 import { createLogger } from "./logger.js";
+import { CatalogueMirror } from "./mirror.js";
 import { DEFAULT_SYNC_OPTIONS, SyncService } from "./service.js";
 
 const logger = createLogger(process.env.LOG_LEVEL ?? "info");
@@ -23,8 +25,15 @@ const redis = createRedis({
   onError: (err) => logger.error({ error: describeError(err) }, "redis connection error"),
 });
 
+// Also copy every applied change into the central database, which search falls back to when live stock is unavailable.
+// Needs DATABASE_URL; SYNC_MIRROR=off runs the service with Redis only.
+const catalogueDb = process.env.DATABASE_URL && process.env.SYNC_MIRROR !== "off" ? createPool(process.env.DATABASE_URL) : undefined;
+catalogueDb?.on("error", (err) => logger.error({ error: describeError(err) }, "catalogue database connection error"));
+logger.info({ catalogueMirror: catalogueDb ? "on" : "off" }, "inventory-sync configured");
+
 const { handler } = createSyncHandler(redis, {
   keyPrefix,
+  mirror: catalogueDb && new CatalogueMirror(catalogueDb, logger),
   retentionMs: num("SYNC_DEDUP_RETENTION_HOURS", DEFAULT_DEDUP_OPTIONS.retentionMs / 3_600_000) * 3_600_000,
   leaseMs: num("SYNC_DEDUP_LEASE_MS", DEFAULT_DEDUP_OPTIONS.leaseMs),
 });
@@ -45,6 +54,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
     logger.info({ signal, ...service.stats() }, "shutting down");
     await service.stop();
     redis.disconnect();
+    await catalogueDb?.end();
     process.exit(0);
   });
 }

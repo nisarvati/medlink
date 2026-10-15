@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_WEIGHTS, normalizeWeights, type RankingConfig } from "../src/modules/ranking/config.js";
-import { rankOffers, type RankInput } from "../src/modules/ranking/rank.js";
+import {
+  DistanceFirstStrategy,
+  PriceFirstStrategy,
+  RankingStrategyFactory,
+  WeightedMultiCriteriaStrategy,
+  rankOffers,
+  type RankInput,
+} from "../src/modules/ranking/rank.js";
 import { loadConfig } from "../src/config.js";
 
 const config = (over: Partial<RankingConfig> = {}): RankingConfig => ({
@@ -125,3 +132,30 @@ describe("config: ranking weights", () => {
     expect(() => loadConfig({ ...base, ...zeros })).toThrow(/Invalid configuration/);
   });
 });
+
+describe("Design Pattern: Ranking Strategy & Factory", () => {
+  const items = [
+    offer("near-expensive", { distanceKm: 1, price: 500, quantity: 10 }),
+    offer("far-cheap", { distanceKm: 8, price: 50, quantity: 10 }),
+  ];
+
+  it("DistanceFirstStrategy ranks closer physical pharmacy higher", () => {
+    const strategy = new DistanceFirstStrategy();
+    const ranked = strategy.rank(items, config());
+    expect(ranked[0]?.id).toBe("near-expensive");
+  });
+
+  it("PriceFirstStrategy ranks cheaper pharmacy higher", () => {
+    const strategy = new PriceFirstStrategy();
+    const ranked = strategy.rank(items, config());
+    expect(ranked[0]?.id).toBe("far-cheap");
+  });
+
+  it("RankingStrategyFactory instantiates appropriate strategy based on mode", () => {
+    expect(RankingStrategyFactory.getStrategy("distance")).toBeInstanceOf(DistanceFirstStrategy);
+    expect(RankingStrategyFactory.getStrategy("price")).toBeInstanceOf(PriceFirstStrategy);
+    expect(RankingStrategyFactory.getStrategy("balanced")).toBeInstanceOf(WeightedMultiCriteriaStrategy);
+    expect(RankingStrategyFactory.getStrategy("unknown")).toBeInstanceOf(WeightedMultiCriteriaStrategy);
+  });
+});
+

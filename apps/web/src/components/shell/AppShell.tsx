@@ -51,7 +51,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             {children}
           </main>
           <footer className="mx-auto hidden max-w-6xl px-4 pb-8 text-xs text-muted sm:block">
-            Stock comes from each pharmacy&apos;s own system and can lag by a few seconds. Call ahead to confirm. MedLink does not give medical advice.
+            Stock comes from each pharmacy&apos;s own system and can lag by a few seconds. Call ahead to confirm. MedLink does not give medical advice.{" "}
+            <Link href="/portal" className="underline hover:text-ink">Pharmacy staff sign in</Link>
           </footer>
           <BottomNav />
         </AccountProvider>

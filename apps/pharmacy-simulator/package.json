@@ -12,6 +12,7 @@
     "@medlink/inventory-connector": "*",
     "@medlink/inventory-sync": "*",
     "@medlink/notification-service": "*",
+    "@medlink/pharmacy-ops": "*",
     "@medlink/redis": "*"
   },
   "exports": {

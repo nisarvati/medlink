@@ -14,6 +14,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && npm run typecheck -w @medlink/web",
     "lint": "eslint .",
     "test": "vitest run",
+    "portal:dev": "npm run dev -w @medlink/pharmacy-portal",
+    "portal:seed-users": "npm run seed-users -w @medlink/pharmacy-portal",
     "web:dev": "npm run dev -w @medlink/web",
     "api:dev": "npm run dev -w @medlink/search-service",
     "pharmacies:setup": "npm run pharmacies:setup -w @medlink/db",
