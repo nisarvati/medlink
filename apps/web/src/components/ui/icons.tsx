@@ -26,6 +26,7 @@ export const MapIcon = (p: IconProps) => base({ ...p, children: (<><path d="m3 6
 export const FilterIcon = (p: IconProps) => base({ ...p, children: <path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z" /> });
 export const ChevronDownIcon = (p: IconProps) => base({ ...p, children: <path d="m6 9 6 6 6-6" /> });
 export const ChevronRightIcon = (p: IconProps) => base({ ...p, children: <path d="m9 6 6 6-6 6" /> });
+export const ArrowRightIcon = (p: IconProps) => base({ ...p, children: <path d="M5 12h14M12 5l7 7-7 7" /> });
 export const ArrowLeftIcon = (p: IconProps) => base({ ...p, children: <path d="M19 12H5M12 19l-7-7 7-7" /> });
 export const ExternalIcon = (p: IconProps) => base({ ...p, children: <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /> });
 export const NavigationIcon = (p: IconProps) => base({ ...p, children: <path d="m3 11 19-9-9 19-2-8-8-2Z" /> });
@@ -36,6 +37,7 @@ export const TrashIcon = (p: IconProps) => base({ ...p, children: <path d="M3 6h
 export const PulseIcon = (p: IconProps) => base({ ...p, children: <path d="M22 12h-4l-3 9L9 3l-3 9H2" /> });
 export const RefreshIcon = (p: IconProps) => base({ ...p, children: <path d="M21 12a9 9 0 0 0-15.5-6.3L3 8M3 3v5h5M3 12a9 9 0 0 0 15.5 6.3L21 16M21 21v-5h-5" /> });
 export const CrosshairIcon = (p: IconProps) => base({ ...p, children: (<><circle cx="12" cy="12" r="8" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></>) });
+export const PhoneIcon = (p: IconProps) => base({ ...p, children: <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.2-1.3a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.8 2.1Z" /> });
 
 /** The MedLink mark: a capsule over a location pin, drawn as one shape. */
 export function LogoMark({ size = 28 }: { size?: number }) {

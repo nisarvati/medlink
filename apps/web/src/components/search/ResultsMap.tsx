@@ -67,12 +67,11 @@ export default function ResultsMap({ results, origin, originLabel, onOpenPharmac
     const pins = toPins(results);
 
     // A soft circle around you: still visible when a pharmacy's pin sits right on top of your dot.
-    L.circle([origin.latitude, origin.longitude], { radius: 400, color: "#0a5f91", weight: 1.5, fillColor: "#0a5f91", fillOpacity: 0.12, interactive: false }).addTo(group);
+    L.circle([origin.latitude, origin.longitude], { radius: 400, color: "var(--info)", weight: 1.5, fillColor: "var(--info)", fillOpacity: 0.12, interactive: false }).addTo(group);
     L.marker([origin.latitude, origin.longitude], {
       icon: L.divIcon({ className: "", html: '<div class="ml-marker ml-marker-you" style="position:absolute;transform:translate(-50%,-50%)"></div>', iconSize: [0, 0] }),
       title: `You: ${originLabel}`,
       alt: `Your location: ${originLabel}`,
-      keyboard: false,
     }).addTo(group);
 
     for (const pin of pins) {
@@ -95,12 +94,23 @@ export default function ResultsMap({ results, origin, originLabel, onOpenPharmac
     <div>
       <div ref={container} role="region" aria-label="Map of the pharmacies in the results" className="h-[28rem] w-full overflow-hidden rounded-2xl border border-line shadow-card sm:h-[34rem]" />
       <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
-        <Legend color="#0b6e43" label="In stock" />
-        <Legend color="#b36b00" label="Low stock" />
-        <Legend color="#a91f35" label="Out of stock" />
-        <Legend color="#0a5f91" label="You" />
+        <Legend color="var(--ok)" label="In stock" />
+        <Legend color="var(--warn)" label="Low stock" />
+        <Legend color="var(--bad)" label="Out of stock" />
+        <Legend color="var(--info)" label="You" />
         {nearest !== null && <span className="ml-auto">Nearest: {formatDistance(nearest)}</span>}
       </div>
+      <details className="mt-3 rounded-xl border border-line bg-surface p-3">
+        <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold">Read map results as text</summary>
+        <ul className="space-y-2 text-sm">
+          {results.map((result) => (
+            <li key={`${result.medicine.id}-${result.pharmacy.id}`}>
+              <a className="font-semibold underline underline-offset-2" href={`/pharmacies/${result.pharmacy.id}`}>{result.pharmacy.name}</a>
+              <span>: {result.medicine.brandName} {result.medicine.dosage}, {STATUS_TEXT[result.stockStatus]}, {formatPrice(result.price)}, {formatDistance(result.distanceKm)} away.</span>
+            </li>
+          ))}
+        </ul>
+      </details>
     </div>
   );
 }

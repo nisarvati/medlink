@@ -31,4 +31,4 @@ export function formatAge(iso: string, now: Date = new Date()): string {
   return formatRelativeTime(iso, now);
 }
 
-export const pluralise = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+export const pluralise = (n: number, one: string, many = one === "pharmacy" ? "pharmacies" : `${one}s`) => `${n} ${n === 1 ? one : many}`;

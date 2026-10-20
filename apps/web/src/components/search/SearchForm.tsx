@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useDebounced } from "../../lib/use-debounced";
 import { SearchIcon, XIcon } from "../ui/icons";
 import { Button, cx } from "../ui/primitives";
 
@@ -10,6 +11,11 @@ export const SUGGESTIONS = ["Crocin 500mg", "Paracetamol", "Augmentin", "Cetzine
 export function SearchForm({ initial, onSearch, large, autoFocus }: { initial: string; onSearch: (q: string) => void; large?: boolean; autoFocus?: boolean }) {
   const [value, setValue] = useState(initial);
   const [problem, setProblem] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const id = useId();
+  const debounced = useDebounced(value.trim(), 180);
+  const options = useMemo(() => debounced.length >= 2 ? SUGGESTIONS.filter((s) => s.toLowerCase().includes(debounced.toLowerCase())) : [], [debounced]);
   useEffect(() => setValue(initial), [initial]); // back/forward navigation
 
   function submit(e: FormEvent) {
@@ -20,12 +26,19 @@ export function SearchForm({ initial, onSearch, large, autoFocus }: { initial: s
       return;
     }
     setProblem(null);
-    onSearch(q);
+    setOpen(false);
+    onSearch(options[active] ?? q);
+  }
+
+  function keyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown" && options.length) { e.preventDefault(); setOpen(true); setActive((n) => (n + 1) % options.length); }
+    if (e.key === "ArrowUp" && options.length) { e.preventDefault(); setOpen(true); setActive((n) => (n <= 0 ? options.length - 1 : n - 1)); }
+    if (e.key === "Escape") setOpen(false);
   }
 
   return (
     <form onSubmit={submit} role="search" noValidate>
-      <div className={cx("flex items-center gap-2 rounded-2xl border bg-surface shadow-card transition-colors focus-within:border-brand", problem ? "border-bad" : "border-line", large ? "p-2" : "p-1.5")}>
+      <div className={cx("search-field flex items-center gap-2 rounded-2xl border bg-surface shadow-card", problem ? "border-bad" : "border-line", large ? "p-2" : "p-1.5")}>
         <SearchIcon size={large ? 22 : 20} className="ml-2.5 shrink-0 text-muted" />
         <label htmlFor="medicine-search" className="sr-only">
           Medicine name
@@ -39,16 +52,24 @@ export function SearchForm({ initial, onSearch, large, autoFocus }: { initial: s
           maxLength={100}
           placeholder="Search a medicine, e.g. Crocin 500mg"
           value={value}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={open && options.length > 0}
+          aria-controls={`${id}-suggestions`}
+          aria-activedescendant={active >= 0 && open ? `${id}-option-${active}` : undefined}
+          onKeyDown={keyDown}
           onChange={(e) => {
             setValue(e.target.value);
             if (problem) setProblem(null);
+            setOpen(true);
+            setActive(-1);
           }}
           aria-invalid={problem ? true : undefined}
           aria-describedby={problem ? "search-problem" : undefined}
-          className={cx("min-w-0 flex-1 bg-transparent px-1 outline-none placeholder:text-muted/80 [&::-webkit-search-cancel-button]:hidden", large ? "h-12 text-lg" : "h-10 text-base")}
+          className={cx("min-w-0 flex-1 bg-transparent px-1 outline-none placeholder:text-placeholder [&::-webkit-search-cancel-button]:hidden", large ? "h-12 text-lg" : "h-10 text-base")}
         />
         {value && (
-          <button type="button" aria-label="Clear search" onClick={() => setValue("")} className="rounded-full p-1.5 text-muted hover:bg-surface-2 hover:text-ink">
+          <button type="button" aria-label="Clear search" onClick={() => { setValue(""); setOpen(false); setActive(-1); }} className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-control-hover hover:text-ink">
             <XIcon size={16} />
           </button>
         )}
@@ -56,6 +77,15 @@ export function SearchForm({ initial, onSearch, large, autoFocus }: { initial: s
           Search
         </Button>
       </div>
+      {open && options.length > 0 && (
+        <ul id={`${id}-suggestions`} role="listbox" aria-label="Medicine suggestions" className="mt-1 overflow-hidden rounded-xl border border-line bg-surface shadow-pop">
+          {options.map((option, index) => (
+            <li key={option} id={`${id}-option-${index}`} role="option" aria-selected={active === index} className={cx("flex min-h-11 cursor-pointer items-center px-4 py-2 text-sm hover:bg-control-hover", active === index && "bg-control-hover")} onMouseDown={(e) => e.preventDefault()} onClick={() => { setValue(option); setOpen(false); onSearch(option); }}>
+              {option}
+            </li>
+          ))}
+        </ul>
+      )}
       {problem && (
         <p id="search-problem" role="alert" className="mt-2 px-1 text-sm text-bad">
           {problem}

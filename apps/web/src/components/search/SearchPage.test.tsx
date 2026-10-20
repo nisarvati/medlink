@@ -35,8 +35,11 @@ describe("SearchPage without a query", () => {
   it("shows the welcome, makes no request, and searches when a suggestion is chosen", async () => {
     const api = mockApi({});
     renderWithProviders(<SearchPage />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/Find your medicine/);
-    await userEvent.click(screen.getByRole("button", { name: "Paracetamol" }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/The right medicine/);
+    expect(screen.getByRole("heading", { name: "Common essentials" })).toBeTruthy();
+    expect(screen.getByText("Real-time shelf updates")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Stock you can understand." })).toBeTruthy();
+    await userEvent.click(screen.getAllByRole("button", { name: "Paracetamol" })[0]!);
     expect(nav.push).toHaveBeenCalledWith("/?q=Paracetamol", { scroll: false });
     expect(api.calls).toEqual([]);
   });
@@ -48,13 +51,33 @@ describe("SearchPage without a query", () => {
     expect((await screen.findByRole("alert")).textContent).toMatch(/Enter a medicine name/);
     expect(nav.push).not.toHaveBeenCalled();
   });
+
+  it("offers debounced keyboard suggestions through the combobox pattern", async () => {
+    mockApi({});
+    renderWithProviders(<SearchPage />);
+    const box = screen.getByRole("combobox", { name: "Medicine name" });
+    await userEvent.type(box, "Cro");
+    const option = await screen.findByRole("option", { name: "Crocin 500mg" });
+    expect(box.getAttribute("aria-expanded")).toBe("true");
+    await userEvent.keyboard("{ArrowDown}");
+    expect(option.getAttribute("aria-selected")).toBe("true");
+    await userEvent.keyboard("{Enter}");
+    expect(nav.push).toHaveBeenCalledWith("/?q=Crocin+500mg", { scroll: false });
+  });
+
+  it("searches from the common essentials browse cards", async () => {
+    mockApi({});
+    renderWithProviders(<SearchPage />);
+    await userEvent.click(screen.getByRole("button", { name: "Dolo 650" }));
+    expect(nav.push).toHaveBeenCalledWith("/?q=Dolo+650", { scroll: false });
+  });
 });
 
 describe("SearchPage with results", () => {
   it("searches from the chosen location and shows each offer, the best first", async () => {
     at("q=Crocin+500mg");
     const api = mockApi({
-      "GET /api/search": search([offer(), offer({ rank: 2, pharmacy: pharmacy({ id: 2, name: "Pharmacy B" }), quantity: 3, stockStatus: "LOW_STOCK", source: "catalogue" })]),
+      "GET /api/search": search([offer(), offer({ rank: 2, pharmacy: pharmacy({ id: 2, name: "Pharmacy B" }), quantity: 3, stockStatus: "LOW_STOCK", source: "catalogue", price: 32 })]),
       ...noNotifications,
     });
     renderWithProviders(<SearchPage />);
@@ -65,13 +88,30 @@ describe("SearchPage with results", () => {
     expect(call.search.get("lat")).toBe("19.1364");
     expect(call.search.get("inStock")).toBeNull();
 
-    expect(screen.getByText("Best match", { selector: "span" })).toBeTruthy(); // the badge, not the sort option
-    expect(screen.getByText(/2 results/)).toBeTruthy();
+    expect(screen.getByText("★ Best match", { selector: "span" })).toBeTruthy(); // the badge, not the sort option
+    expect(screen.getByText(/2 pharmacies near Andheri West have Crocin 500mg/)).toBeTruthy();
+    expect(screen.getByText("Typical price range")).toBeTruthy();
+    expect(screen.getByText("₹25 – ₹32")).toBeTruthy();
+    expect(screen.getAllByText("400 m away").length).toBeGreaterThan(0);
     expect(screen.getByText("Live stock")).toBeTruthy();
-    expect(screen.getByText(/In stock · 12 available/)).toBeTruthy();
-    expect(screen.getByText(/Low stock · only 3 left/)).toBeTruthy();
+    expect(screen.getByText(/12 in stock/)).toBeTruthy();
+    expect(screen.getByText(/Low stock · 3 left/)).toBeTruthy();
     expect(screen.getAllByText(/Live/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Last known · updated/)).toBeTruthy(); // the catalogue-sourced offer says so
+  });
+
+  it("expands medicine details with inline alternatives when a result is out of stock", async () => {
+    at("q=Crocin");
+    mockApi({
+      "GET /api/search": search([out()]),
+      "GET /api/medicines/1/substitutes": () => ({ body: { data: [{ medicine: medicine({ id: 2, brandName: "Dolo", dosage: "650mg" }), sameStrength: false, sameForm: true, best: offer({ medicine: medicine({ id: 2, brandName: "Dolo", dosage: "650mg" }) }), pharmaciesInStock: 1 }], meta: { notice: "Ask a pharmacist before switching." } } }),
+      ...noNotifications,
+    });
+    renderWithProviders(<SearchPage />);
+    await screen.findByText(/Pharmacy A/);
+    await userEvent.click(screen.getByText("More medicine details"));
+    expect(screen.getByText("Generic name")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Show substitutes" }).getAttribute("href")).toBe("#alternatives-1");
   });
 
   it("a new search goes into the URL", async () => {
@@ -79,7 +119,7 @@ describe("SearchPage with results", () => {
     mockApi({ "GET /api/search": search([offer()]), ...noNotifications });
     renderWithProviders(<SearchPage />);
     await screen.findByText(/Pharmacy A/);
-    const box = screen.getByRole("searchbox");
+    const box = screen.getByRole("combobox", { name: "Medicine name" });
     await userEvent.clear(box);
     await userEvent.type(box, "Dolo{Enter}");
     expect(nav.push).toHaveBeenCalledWith("/?q=Dolo", { scroll: false });
@@ -115,7 +155,7 @@ describe("SearchPage with results", () => {
     mockApi({ "GET /api/search": search([offer()]), ...noNotifications });
     renderWithProviders(<SearchPage />);
     await screen.findByText(/Pharmacy A/);
-    expect(screen.queryByText("Best match", { selector: "span" })).toBeNull();
+    expect(screen.queryByText("★ Best match", { selector: "span" })).toBeNull();
   });
 
   it("shows the list or the map, as the URL says", async () => {
@@ -195,9 +235,9 @@ describe("SearchPage filters", () => {
     expect(Object.fromEntries(filtered.search)).toMatchObject({ q: "Crocin", inStock: "true", maxDistanceKm: "5", maxPrice: "50", sort: "distance" });
 
     await userEvent.selectOptions(screen.getByLabelText("Sort by"), "price");
-    expect(nav.replace).toHaveBeenLastCalledWith("/?q=Crocin&stock=1&dist=5&price=50&sort=price", { scroll: false });
+    expect(nav.push).toHaveBeenLastCalledWith("/?q=Crocin&stock=1&dist=5&price=50&sort=price", { scroll: false });
     await userEvent.click(screen.getByRole("button", { name: /clear filters \(3\)/i }));
-    expect(nav.replace).toHaveBeenLastCalledWith("/?q=Crocin&sort=distance", { scroll: false });
+    expect(nav.push).toHaveBeenLastCalledWith("/?q=Crocin&sort=distance", { scroll: false });
   });
 
   it("explains an empty result caused by filters, and clears them", async () => {
@@ -206,7 +246,7 @@ describe("SearchPage filters", () => {
     renderWithProviders(<SearchPage />);
     expect(await screen.findByText("No pharmacies match your filters")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(nav.replace).toHaveBeenLastCalledWith("/?q=Crocin", { scroll: false });
+    expect(nav.push).toHaveBeenLastCalledWith("/?q=Crocin", { scroll: false });
   });
 
   it("says plainly when nothing matches the name", async () => {

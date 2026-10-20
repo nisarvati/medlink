@@ -2,9 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, searchMedicines, type SearchFilters } from "../../lib/api";
-import { pluralise } from "../../lib/format";
+import { formatPrice, pluralise } from "../../lib/format";
 import { unavailableMedicines } from "../../lib/restock";
 import { activeFilterCount, parseSearchParams, toSearchParams, type SearchState, type View } from "../../lib/search-state";
 import { useAsync } from "../../lib/use-async";
@@ -35,8 +35,8 @@ export function SearchPage() {
     },
     [router, pathname],
   );
-  const setFilters = (filters: SearchFilters) => go({ ...state, filters }, "replace");
-  const setView = (view: View) => go({ ...state, view }, "replace");
+  const setFilters = (filters: SearchFilters) => go({ ...state, filters }, "push");
+  const setView = (view: View) => go({ ...state, view }, "push");
   const newSearch = (q: string) => go({ ...state, q }, "push");
 
   const hasQuery = state.q.length > 0;
@@ -55,25 +55,57 @@ export function SearchPage() {
     [state.q, location.latitude, location.longitude],
     ready && hasQuery && narrowed,
   );
+  const [stockAnnouncement, setStockAnnouncement] = useState("");
+  const previousStock = useRef("");
+  useEffect(() => {
+    if (!hasQuery || !ready) return;
+    let inFlight = false;
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || inFlight) return;
+      inFlight = true;
+      search.reload();
+      if (narrowed) everything.reload();
+      window.setTimeout(() => { inFlight = false; }, 1000);
+    };
+    const timer = window.setInterval(refresh, 20000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [hasQuery, ready, narrowed, search.reload, everything.reload]);
   const availability = (narrowed ? everything.data : search.data)?.results ?? [];
   const unavailable = useMemo(() => unavailableMedicines(availability), [availability]);
-
-  if (!hasQuery) return <Hero onSearch={newSearch} />;
-
   const results = search.data?.results ?? [];
+  const matchingMedicines = useMemo(
+    () => Array.from(new Map(results.map((result) => [result.medicine.id, result.medicine])).values()),
+    [results],
+  );
+  const contextMedicine = matchingMedicines.length === 1 ? matchingMedicines[0] : null;
+  const pharmacyCount = useMemo(() => new Set(results.map((result) => result.pharmacy.id)).size, [results]);
+  const priceRange = useMemo(() => {
+    if (!results.length) return null;
+    const prices = results.map((result) => result.price);
+    return { min: Math.min(...prices), max: Math.max(...prices) };
+  }, [results]);
   const loading = search.status === "loading" || search.status === "idle";
   const first = loading && !search.data;
   const filters = activeFilterCount(state.filters);
   // "Live" must mean something was actually synced, not just that Redis answered.
   const anyLive = results.some((r) => r.source === "live");
+  useEffect(() => {
+    const next = results.map((r) => `${r.medicine.id}:${r.pharmacy.id}:${r.quantity}:${r.stockStatus}`).join("|");
+    if (previousStock.current && previousStock.current !== next) setStockAnnouncement("Live stock has changed. Search results have been updated.");
+    previousStock.current = next;
+  }, [results]);
+
+  if (!hasQuery) return <Hero onSearch={newSearch} />;
 
   return (
-    <div className="space-y-5">
-      <h1 className="sr-only">Search results for {state.q}</h1>
+    <div className="search-results-view space-y-5">
+      {(!search.data || results.length === 0) && <h1 className="sr-only">Search results for {state.q}</h1>}
       <SearchForm initial={state.q} onSearch={newSearch} />
       <FilterBar filters={state.filters} view={state.view} onFilters={setFilters} onView={setView} />
 
-      <section aria-live="polite" aria-busy={loading} className="space-y-4">
+      <section aria-busy={loading} className="space-y-4">
+        <p className="sr-only" role="status" aria-live="polite">{stockAnnouncement}</p>
         {search.status === "error" && (
           <Alert tone="bad" title="We couldn't load the results" action={<Button size="sm" variant="secondary" onClick={search.reload}>Try again</Button>}>
             {search.error instanceof ApiError ? search.error.message : "Something went wrong. Please try again."}
@@ -89,20 +121,64 @@ export function SearchPage() {
         )}
 
         {first && (
-          <ul className="space-y-3" aria-label="Loading results">
+          <>
+          <p role="status" className="sr-only">Loading results for {state.q}</p>
+          <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Loading results">
             {[0, 1, 2].map((i) => (
               <li key={i}>
-                <Skeleton className="h-36" />
+                <Skeleton className="h-64" />
               </li>
             ))}
           </ul>
+          </>
         )}
 
         {search.data && (
           <>
-            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
-              <span>
-                <strong className="text-ink">{pluralise(results.length, "result")}</strong> for “{state.q}” near {picked.label.replace(/, Mumbai$/, "")}
+            {results.length > 0 && (
+              <Card className="medicine-context grid gap-4 p-4 sm:p-5 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.13em] text-muted">Medicine in focus</p>
+                  <h1 className="editorial-title mt-1 truncate text-2xl text-ink">
+                    {contextMedicine ? `${contextMedicine.brandName} ${contextMedicine.dosage}` : state.q}
+                  </h1>
+                  <p className="mt-0.5 text-sm text-muted">
+                    {contextMedicine
+                      ? `${contextMedicine.genericName} · ${contextMedicine.form}`
+                      : `${matchingMedicines.length} matching medicine options`}
+                  </p>
+                </div>
+                <div className="md:border-l md:border-line md:pl-4">
+                  <p className="text-xs font-medium text-muted">Typical price range</p>
+                  <p className="mt-1 font-semibold tabular-nums text-ink">
+                    {priceRange
+                      ? priceRange.min === priceRange.max
+                        ? formatPrice(priceRange.min)
+                        : `${formatPrice(priceRange.min)} – ${formatPrice(priceRange.max)}`
+                      : "Price varies"}
+                  </p>
+                </div>
+                <details className="md:border-l md:border-line md:pl-4">
+                  <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-brand hover:underline">
+                    More medicine details
+                  </summary>
+                  <ul className="mt-2 space-y-2 text-sm">
+                    {matchingMedicines.map((medicine) => (
+                      <li key={medicine.id}>
+                        <span className="font-medium">{medicine.brandName} {medicine.dosage}</span>
+                        <span className="block text-muted">{medicine.genericName} · {medicine.form}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </Card>
+            )}
+
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted" aria-live="polite" aria-atomic="true">
+              <span className="font-medium text-ink">
+                {contextMedicine
+                  ? `${pharmacyCount} ${pharmacyCount === 1 ? "pharmacy" : "pharmacies"} near ${picked.label.replace(/, Mumbai$/, "")} ${pharmacyCount === 1 ? "has" : "have"} ${contextMedicine.brandName} ${contextMedicine.dosage}`
+                  : `${pluralise(results.length, "offer")} across ${pluralise(pharmacyCount, "pharmacy")} near ${picked.label.replace(/, Mumbai$/, "")} for ${state.q}`}
               </span>
               {anyLive && (
                 <span className="inline-flex items-center gap-1.5 font-medium text-ok">
@@ -127,7 +203,7 @@ export function SearchPage() {
             )}
 
             {results.length > 0 && state.view === "list" && (
-              <ol className="space-y-3">
+              <ol className="results-list grid gap-3">
                 {results.map((r) => (
                   <ResultCard key={`${r.medicine.id}-${r.pharmacy.id}`} result={r} origin={location} best={(state.filters.sort ?? "best") === "best" && r.rank === 1 && r.stockStatus !== "OUT_OF_STOCK"} />
                 ))}

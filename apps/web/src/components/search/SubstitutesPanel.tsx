@@ -28,7 +28,7 @@ export function SubstitutesPanel({ medicine, location }: { medicine: MedicineRef
   if (substitutes.length === 0) return null;
 
   return (
-    <section aria-label={`Alternatives to ${medicine.brandName} ${medicine.dosage}`}>
+    <section id={`alternatives-${medicine.id}`} aria-label={`Alternatives to ${medicine.brandName} ${medicine.dosage}`}>
       <h3 className="flex items-center gap-1.5 text-sm font-semibold">
         <SwapIcon size={16} className="text-brand" />
         Available nearby with the same ingredient ({medicine.genericName})

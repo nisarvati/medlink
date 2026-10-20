@@ -33,7 +33,7 @@ export function FilterBar({
           aria-label="Maximum distance"
           value={filters.maxDistanceKm ?? ""}
           onChange={(e) => onFilters({ ...filters, maxDistanceKm: e.target.value ? Number(e.target.value) : undefined })}
-          className="h-9 w-auto rounded-full"
+          className={`min-h-11 w-auto rounded-full md:h-9 md:min-h-0 ${filters.maxDistanceKm ? "border-brand bg-brand-soft text-brand-ink" : ""}`}
         >
           <option value="">Any distance</option>
           {DISTANCE_OPTIONS.map((d) => (
@@ -50,7 +50,7 @@ export function FilterBar({
           aria-label="Maximum price"
           value={filters.maxPrice ?? ""}
           onChange={(e) => onFilters({ ...filters, maxPrice: e.target.value ? Number(e.target.value) : undefined })}
-          className="h-9 w-auto rounded-full"
+          className={`min-h-11 w-auto rounded-full md:h-9 md:min-h-0 ${filters.maxPrice ? "border-brand bg-brand-soft text-brand-ink" : ""}`}
         >
           <option value="">Any price</option>
           {PRICE_OPTIONS.map((p) => (
@@ -71,7 +71,7 @@ export function FilterBar({
       <div className="flex items-center justify-between gap-2.5 sm:ml-auto sm:justify-end">
         <label className="inline-flex items-center gap-2 text-sm text-muted">
           <span className="hidden whitespace-nowrap sm:inline">Sort</span>
-          <Select aria-label="Sort by" value={filters.sort ?? "best"} onChange={(e) => onFilters({ ...filters, sort: e.target.value as SortKey })} className="h-9 w-auto rounded-full">
+          <Select aria-label="Sort by" value={filters.sort ?? "best"} onChange={(e) => onFilters({ ...filters, sort: e.target.value as SortKey })} className="min-h-11 w-auto rounded-full md:h-9 md:min-h-0">
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}

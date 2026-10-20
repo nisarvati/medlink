@@ -30,11 +30,11 @@ export function TopNav() {
   const pathname = usePathname();
   const { unread } = useAccount();
   return (
-    <nav aria-label="Main" className="hidden items-center gap-1 sm:flex">
+    <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
       {NAV.map(({ href, label, Icon }) => {
         const active = isActive(pathname, href);
         return (
-          <Link key={href} href={href} aria-current={active ? "page" : undefined} className={cx("relative inline-flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors", active ? "bg-brand-soft text-brand-strong" : "text-muted hover:bg-surface-2 hover:text-ink")}>
+          <Link key={href} href={href} aria-current={active ? "page" : undefined} className={cx("relative inline-flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors", active ? "bg-brand-soft text-brand-ink" : "text-muted hover:bg-control-hover hover:text-ink")}>
             <span className="relative">
               <Icon size={18} />
               {href === "/notifications" && <UnreadBadge count={unread} />}
@@ -52,7 +52,7 @@ export function BottomNav() {
   const pathname = usePathname();
   const { unread } = useAccount();
   return (
-    <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
+    <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface safe-area-bottom md:hidden">
       <ul className="mx-auto grid max-w-md grid-cols-3">
         {NAV.map(({ href, label, Icon }) => {
           const active = isActive(pathname, href);

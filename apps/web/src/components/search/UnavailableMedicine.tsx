@@ -11,7 +11,7 @@ export function UnavailableMedicine({ medicine, pharmacyCount, location }: { med
   return (
     <Card className="border-warn/40 p-4 sm:p-5">
       <h2 className="flex items-start gap-2 font-semibold">
-        <AlertIcon size={18} className="mt-0.5 shrink-0 text-warn" />
+        <AlertIcon size={18} className="mt-0.5 shrink-0 text-warn-icon" />
         <span>
           {medicine.brandName} {medicine.dosage} is out of stock {pharmacyCount === 1 ? "at the pharmacy we found" : `at all ${pharmacyCount} pharmacies we found`}
         </span>

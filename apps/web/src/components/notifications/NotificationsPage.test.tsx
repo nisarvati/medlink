@@ -54,6 +54,16 @@ describe("NotificationsPage with an email", () => {
     expect(screen.getByText("Notifications (2)")).toBeTruthy();
   });
 
+  it("marks an individual new notification as read", async () => {
+    signedIn();
+    mockApi({ "GET /api/notifications": () => ({ body: { data: [note(9)] } }), "GET /api/restock-subscriptions": () => ({ body: { data: [] } }) });
+    renderWithProviders(<NotificationsPage />);
+    await screen.findByText(/back in stock at Pharmacy 9/);
+    await userEvent.click(screen.getByRole("button", { name: /Mark Crocin .* as read/i }));
+    expect(screen.queryByText("New")).toBeNull();
+    expect(localStorage.getItem("medlink:seen:asha@example.com")).toBe("9");
+  });
+
   it("says what to do when there are none", async () => {
     signedIn();
     mockApi({ "GET /api/notifications": () => ({ body: { data: [] } }), "GET /api/restock-subscriptions": () => ({ body: { data: [] } }) });
@@ -62,12 +72,21 @@ describe("NotificationsPage with an email", () => {
     expect(screen.getByRole("link", { name: /search for a medicine/i }).getAttribute("href")).toBe("/");
   });
 
-  it("marks what it showed as read, so the badge clears and nothing is new next time", async () => {
+  it("shows a retry action when notifications cannot be refreshed", async () => {
+    signedIn();
+    mockApi({ "GET /api/notifications": () => ({ status: 503, body: {} }), "GET /api/restock-subscriptions": () => ({ body: { data: [] } }) });
+    renderWithProviders(<NotificationsPage />);
+    expect(await screen.findByText("We couldn't refresh your notifications")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+  });
+
+  it("marks all shown notifications as read on request", async () => {
     signedIn();
     mockApi({ "GET /api/notifications": () => ({ body: { data: [note(5)] } }), "GET /api/restock-subscriptions": () => ({ body: { data: [] } }) });
     renderWithProviders(<NotificationsPage />);
     await screen.findByText(/back in stock/);
-    await waitFor(() => expect(localStorage.getItem("medlink:seen:asha@example.com")).toBe("5"), { timeout: 3000 });
+    await userEvent.click(await screen.findByRole("button", { name: "Mark all as read (1)" }));
+    await waitFor(() => expect(localStorage.getItem("medlink:seen:asha@example.com")).toBe("5"));
   });
 
   it("lists what you are waiting for, and cancels it", async () => {

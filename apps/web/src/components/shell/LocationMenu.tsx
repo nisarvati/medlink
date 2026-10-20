@@ -83,7 +83,7 @@ export function LocationMenu({ className }: { className?: string }) {
         aria-controls={open ? panelId : undefined}
         aria-label={`Location: ${picked.label}. Change`}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-10 max-w-[13rem] items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-medium hover:bg-surface-2 sm:max-w-[16rem]"
+        className="inline-flex h-11 min-w-0 max-w-[6.5rem] items-center gap-1.5 rounded-xl border border-control-border bg-surface px-2 text-sm font-medium shadow-control transition-colors hover:border-control-hover-border hover:bg-control-hover sm:max-w-[13rem] sm:px-3 md:h-10 lg:max-w-[16rem]"
       >
         <MapPinIcon size={16} className="shrink-0 text-brand" />
         <span className="truncate">{picked.label.replace(/, Mumbai$/, "")}</span>
@@ -105,7 +105,7 @@ export function LocationMenu({ className }: { className?: string }) {
                       setPicked({ label: a.label, location: { latitude: a.latitude, longitude: a.longitude } });
                       close();
                     }}
-                    className={cx("flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface-2", selected && "bg-brand-soft font-semibold text-brand-strong")}
+                    className={cx("flex min-h-11 w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm hover:bg-control-hover", selected && "bg-brand-soft font-semibold text-brand-ink")}
                   >
                     {a.label}
                     {selected && <CheckIcon size={16} />}
@@ -121,8 +121,8 @@ export function LocationMenu({ className }: { className?: string }) {
               Use my current location
             </Button>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <Input aria-label="Latitude" inputMode="decimal" placeholder="Latitude" value={lat} onChange={(e) => setLat(e.target.value)} className="h-9" />
-              <Input aria-label="Longitude" inputMode="decimal" placeholder="Longitude" value={lng} onChange={(e) => setLng(e.target.value)} className="h-9" />
+              <Input aria-label="Latitude" inputMode="decimal" placeholder="Latitude" value={lat} onChange={(e) => setLat(e.target.value)} className="h-11 md:h-9" />
+              <Input aria-label="Longitude" inputMode="decimal" placeholder="Longitude" value={lng} onChange={(e) => setLng(e.target.value)} className="h-11 md:h-9" />
             </div>
             <Button size="sm" variant="ghost" onClick={applyCoordinates} disabled={!lat && !lng} className="mt-2 w-full">
               Use these coordinates

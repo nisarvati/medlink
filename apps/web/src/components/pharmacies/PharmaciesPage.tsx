@@ -20,10 +20,11 @@ export function PharmaciesPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight">Pharmacies</h1>
-        <p className="mt-1 text-muted">Every pharmacy on MedLink, nearest to {picked.label.replace(/, Mumbai$/, "")} first. Open one to see everything it has in stock, live.</p>
+    <div className="pharmacies-view space-y-6">
+      <header className="max-w-3xl border-b border-line pb-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Your local network</p>
+        <h1 className="editorial-title mt-2 text-4xl leading-tight sm:text-5xl">Pharmacies close to home</h1>
+        <p className="mt-2 max-w-2xl text-muted">Browse nearby independent pharmacies, ranked from {picked.label.replace(/, Mumbai$/, "")}. Open one to check its latest stock.</p>
       </header>
 
       {state.status === "error" && (
@@ -33,6 +34,7 @@ export function PharmaciesPage() {
       )}
       {!state.data && state.status !== "error" && (
         <div className="grid gap-4 sm:grid-cols-2" aria-label="Loading pharmacies">
+          <p role="status" className="sr-only">Loading pharmacies</p>
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-36" />
           ))}
@@ -40,22 +42,22 @@ export function PharmaciesPage() {
       )}
       {state.data && sorted.length === 0 && <EmptyState icon={<StoreIcon />} title="No pharmacies yet">Pharmacies appear here once they join MedLink.</EmptyState>}
 
-      <ul className="grid gap-4 sm:grid-cols-2">
+        <ul className="pharmacy-directory grid gap-0">
         {sorted.map(({ p, km }) => (
           <li key={p.id}>
-            <Card className="flex h-full flex-col p-5 transition-shadow hover:shadow-pop">
+            <Card className="directory-row surface-lift flex h-full flex-col p-5 transition-shadow">
               <div className="flex items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-strong">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-ink">
                   <StoreIcon size={22} />
                 </span>
                 <div className="min-w-0">
-                  <h2 className="font-semibold leading-snug">
+                  <h2 className="editorial-title text-xl leading-snug">
                     <Link href={`/pharmacies/${p.id}`} className="rounded underline-offset-2 hover:underline">
                       {p.name}
                     </Link>
                   </h2>
                   <p className="text-sm text-muted">{p.address}</p>
-                  <p className="mt-1 text-sm font-medium">{formatDistance(km)}</p>
+                  <p className="mt-2 inline-flex items-center rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-ink">{formatDistance(km)}</p>
                 </div>
               </div>
               <div className="mt-auto flex items-center gap-2 pt-4">

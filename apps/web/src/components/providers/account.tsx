@@ -14,10 +14,12 @@ interface AccountValue {
   setEmail: (email: string | null) => void;
   notifications: UserNotification[] | null;
   unread: number;
+  notificationsUnavailable: boolean;
   /** The newest notification id this device had shown before now: what is "new" on the notifications page. */
   lastSeen: number;
   /** Marks everything shown so far as read. */
   markAllRead: () => void;
+  markRead: (id: number) => void;
   refresh: () => Promise<void>;
 }
 
@@ -26,8 +28,10 @@ const AccountContext = createContext<AccountValue>({
   setEmail: () => undefined,
   notifications: null,
   unread: 0,
+  notificationsUnavailable: false,
   lastSeen: 0,
   markAllRead: () => undefined,
+  markRead: () => undefined,
   refresh: async () => undefined,
 });
 export const useAccount = () => useContext(AccountContext);
@@ -36,6 +40,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [email, setEmailState] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<UserNotification[] | null>(null);
   const [lastSeen, setLastSeen] = useState(0);
+  const [notificationsUnavailable, setNotificationsUnavailable] = useState(false);
   const emailRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -52,6 +57,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     emailRef.current = normalised;
     setEmailState(normalised);
     setNotifications(null);
+    setNotificationsUnavailable(false);
     setLastSeen(normalised ? loadLastSeen(normalised) : 0);
     writeStorage(EMAIL_KEY, normalised);
   }, []);
@@ -61,19 +67,29 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     if (!current) return;
     try {
       const data = await listNotifications(current);
-      if (emailRef.current === current) setNotifications(data); // the user may have switched address meanwhile
+      if (emailRef.current === current) {
+        setNotifications(data); // the user may have switched address meanwhile
+        setNotificationsUnavailable(false);
+      }
     } catch {
-      /* keep what is shown; the next poll tries again */
+      if (emailRef.current === current) setNotificationsUnavailable(true); // keep the last good list; the next poll retries
     }
   }, []);
 
   useEffect(() => {
     if (!email) return;
-    void refresh();
+    let inFlight = false;
+    const run = () => {
+      if (document.visibilityState !== "visible" || inFlight) return;
+      inFlight = true;
+      void refresh().finally(() => { inFlight = false; });
+    };
+    run();
     const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void refresh();
+      run();
     }, POLL_MS);
-    return () => clearInterval(timer);
+    document.addEventListener("visibilitychange", run);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", run); };
   }, [email, refresh]);
 
   const markAllRead = useCallback(() => {
@@ -86,7 +102,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     }
   }, [notifications]);
 
+  const markRead = useCallback((id: number) => {
+    const current = emailRef.current;
+    if (!current || id <= loadLastSeen(current)) return;
+    saveLastSeen(current, id);
+    setLastSeen(id);
+  }, []);
+
   const unread = notifications ? countUnread(notifications, lastSeen) : 0;
-  const value = useMemo(() => ({ email, setEmail, notifications, unread, lastSeen, markAllRead, refresh }), [email, setEmail, notifications, unread, lastSeen, markAllRead, refresh]);
+  const value = useMemo(() => ({ email, setEmail, notifications, notificationsUnavailable, unread, lastSeen, markAllRead, markRead, refresh }), [email, setEmail, notifications, notificationsUnavailable, unread, lastSeen, markAllRead, markRead, refresh]);
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }

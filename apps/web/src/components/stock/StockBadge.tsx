@@ -9,13 +9,15 @@ const STYLE = {
 } as const;
 
 /** Status is conveyed by text and icon as well as colour. */
-export function StockBadge({ status, quantity }: { status: StockStatus; quantity?: number }) {
+export function StockBadge({ status, quantity, compact = false }: { status: StockStatus; quantity?: number; compact?: boolean }) {
   const s = STYLE[status];
-  const detail = status === "LOW_STOCK" && quantity !== undefined ? ` · only ${quantity} left` : status === "IN_STOCK" && quantity !== undefined ? ` · ${quantity} available` : "";
+  const detail = compact
+    ? status === "IN_STOCK" && quantity !== undefined ? ` ${quantity} in stock` : status === "LOW_STOCK" && quantity !== undefined ? ` · ${quantity} left` : ""
+    : status === "LOW_STOCK" && quantity !== undefined ? ` · only ${quantity} left` : status === "IN_STOCK" && quantity !== undefined ? ` · ${quantity} available` : "";
   return (
-    <Badge tone={s.tone}>
+    <Badge tone={s.tone} className={compact ? "shrink-0" : undefined}>
       <s.Icon size={14} />
-      {s.label}
+      {compact && status === "IN_STOCK" ? null : s.label}
       {detail}
     </Badge>
   );

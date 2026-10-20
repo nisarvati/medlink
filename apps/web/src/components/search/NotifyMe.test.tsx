@@ -51,6 +51,36 @@ describe("NotifyMe", () => {
     expect((await screen.findByRole("status")).textContent).toMatch(/already on the list/i);
   });
 
+  it("lets a newly created subscription be undone", async () => {
+    const api = mockApi({
+      "POST /api/restock-subscriptions": () => ({ status: 201, body: { data: subscription, meta: { created: true } } }),
+      "DELETE /api/restock-subscriptions/*": () => ({ body: { data: {} } }),
+      "GET /api/notifications": () => ({ body: { data: [] } }),
+    });
+    renderWithProviders(<NotifyMe medicine={crocin} />);
+    await userEvent.type(screen.getByLabelText(/notify me when/i), "asha@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Notify me" }));
+    await screen.findByRole("status");
+    await userEvent.click(screen.getByRole("button", { name: "Undo subscription" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Notify me" })).toBeTruthy());
+    expect(api.calls.find((c) => c.method === "DELETE")?.path).toBe("/api/restock-subscriptions/7");
+  });
+
+  it("restores the subscription confirmation if undo fails", async () => {
+    mockApi({
+      "POST /api/restock-subscriptions": () => ({ status: 201, body: { data: subscription, meta: { created: true } } }),
+      "DELETE /api/restock-subscriptions/*": () => ({ status: 503, body: {} }),
+      "GET /api/notifications": () => ({ body: { data: [] } }),
+    });
+    renderWithProviders(<NotifyMe medicine={crocin} />);
+    await userEvent.type(screen.getByLabelText(/notify me when/i), "asha@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Notify me" }));
+    await screen.findByRole("status");
+    await userEvent.click(screen.getByRole("button", { name: "Undo subscription" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/temporarily unavailable/i);
+    expect(screen.getByText("You're on the list.")).toBeTruthy();
+  });
+
   it("prefills the email it remembers", async () => {
     localStorage.setItem("medlink:notify-email", "asha@example.com");
     mockApi({ "GET /api/notifications": () => ({ body: { data: [] } }) });

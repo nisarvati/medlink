@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, getPharmacy, getPharmacyStock, type PharmacyStockItem, type StockStatus } from "../../lib/api";
 import { formatDistance, formatPrice, pluralise } from "../../lib/format";
 import { buildDirectionsUrl } from "../../lib/maps";
@@ -25,30 +25,50 @@ export function PharmacyPage({ id }: { id: number }) {
 
   const pharmacy = useAsync((signal) => getPharmacy(id, picked.location, { signal }), [id, picked.location.latitude, picked.location.longitude], ready);
   const stock = useAsync((signal) => getPharmacyStock(id, { q }, { signal }), [id, q]);
+  const previousStock = useRef("");
+  const [stockAnnouncement, setStockAnnouncement] = useState("");
+  useEffect(() => {
+    let inFlight = false;
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || inFlight) return;
+      inFlight = true;
+      stock.reload();
+      window.setTimeout(() => { inFlight = false; }, 1000);
+    };
+    const timer = window.setInterval(refresh, 20000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [stock.reload]);
 
   const items = useMemo(() => (stock.data?.items ?? []).filter((i) => tab === "all" || i.stockStatus === tab), [stock.data, tab]);
   const summary = stock.data?.summary;
   const anyLive = (stock.data?.items ?? []).some((i) => i.source === "live");
+  useEffect(() => {
+    const next = (stock.data?.items ?? []).map((i) => `${i.medicine.id}:${i.quantity}:${i.stockStatus}`).join("|");
+    if (previousStock.current && previousStock.current !== next) setStockAnnouncement("Live stock has changed. Pharmacy stock has been updated.");
+    previousStock.current = next;
+  }, [stock.data]);
 
   if (pharmacy.status === "error" && pharmacy.error instanceof ApiError && pharmacy.error.kind === "notFound") {
     return (
-      <EmptyState title="We couldn't find that pharmacy" action={<LinkButton href="/pharmacies" variant="primary">All pharmacies</LinkButton>}>
+      <EmptyState level={1} title="We couldn't find that pharmacy" action={<LinkButton href="/pharmacies" variant="primary">All pharmacies</LinkButton>}>
         It may no longer be listed.
       </EmptyState>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="pharmacy-view space-y-6">
       <Link href="/pharmacies" className="inline-flex items-center gap-1.5 rounded text-sm font-medium text-muted hover:text-ink">
         <ArrowLeftIcon size={16} /> All pharmacies
       </Link>
 
-      <Card className="p-5 sm:p-6">
+      <Card className="pharmacy-overview overflow-hidden p-5 sm:p-7">
         {pharmacy.data ? (
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{pharmacy.data.name}</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Independent pharmacy</p>
+              <h1 className="editorial-title mt-1 text-3xl leading-tight sm:text-4xl">{pharmacy.data.name}</h1>
               <p className="mt-1 flex items-center gap-1.5 text-muted">
                 <MapPinIcon size={16} className="shrink-0 text-brand" />
                 {pharmacy.data.address}
@@ -60,14 +80,17 @@ export function PharmacyPage({ id }: { id: number }) {
             </LinkButton>
           </div>
         ) : (
-          <div aria-hidden="true" className="space-y-2">
-            <Skeleton className="h-8 w-72" />
-            <Skeleton className="h-5 w-96 max-w-full" />
-          </div>
+          <>
+            <h1 className="sr-only">Loading pharmacy details</h1>
+            <div aria-hidden="true" className="space-y-2">
+              <Skeleton className="h-8 w-72 max-w-full" />
+              <Skeleton className="h-5 w-96 max-w-full" />
+            </div>
+          </>
         )}
 
         {summary && (
-          <dl className="mt-5 grid grid-cols-3 gap-3">
+          <dl className="mt-6 grid grid-cols-1 gap-2 border-t border-line pt-4 sm:grid-cols-3 sm:gap-3">
             <Stat label="In stock" value={summary.inStock} tone="ok" />
             <Stat label="Low stock" value={summary.lowStock} tone="warn" />
             <Stat label="Out of stock" value={summary.outOfStock} tone="bad" />
@@ -76,6 +99,7 @@ export function PharmacyPage({ id }: { id: number }) {
       </Card>
 
       <section aria-label="Stock" className="space-y-4">
+        <p className="sr-only" role="status" aria-live="polite">{stockAnnouncement}</p>
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-0 flex-1 basis-64">
             <SearchIcon size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
@@ -110,6 +134,7 @@ export function PharmacyPage({ id }: { id: number }) {
 
         {!stock.data && stock.status !== "error" && (
           <div className="space-y-2" aria-label="Loading stock">
+            <p role="status" className="sr-only">Loading pharmacy stock</p>
             {[0, 1, 2, 3, 4].map((i) => (
               <Skeleton key={i} className="h-16" />
             ))}
@@ -140,11 +165,11 @@ export function PharmacyPage({ id }: { id: number }) {
 }
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: "ok" | "warn" | "bad" }) {
-  const color = { ok: "text-ok bg-ok-soft", warn: "text-warn bg-warn-soft", bad: "text-bad bg-bad-soft" }[tone];
+  const color = { ok: "border border-ok-border text-ok bg-ok-soft", warn: "border border-warn-border text-warn bg-warn-soft", bad: "border border-bad-border text-bad bg-bad-soft" }[tone];
   return (
-    <div className={`rounded-xl px-4 py-3 ${color}`}>
+    <div className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 sm:block ${color}`}>
+      <dt className="text-sm font-semibold">{label}</dt>
       <dd className="text-2xl font-bold tabular-nums">{value}</dd>
-      <dt className="text-xs font-semibold">{label}</dt>
     </div>
   );
 }

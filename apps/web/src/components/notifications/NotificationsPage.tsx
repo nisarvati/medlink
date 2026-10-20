@@ -14,10 +14,11 @@ type Tab = "feed" | "waiting";
 export function NotificationsPage() {
   const { email } = useAccount();
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
-        <p className="mt-1 text-muted">Restock alerts for the medicines you&apos;re waiting for.</p>
+    <div className="notifications-view mx-auto max-w-3xl space-y-6">
+      <header className="border-b border-line pb-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">A little peace of mind</p>
+        <h1 className="editorial-title mt-2 text-4xl leading-tight sm:text-5xl">Your restock notes</h1>
+        <p className="mt-2 text-muted">Alerts from the local pharmacies you&apos;re keeping an eye on.</p>
       </header>
       {email ? <Inbox email={email} /> : <EmailGate />}
     </div>
@@ -41,7 +42,7 @@ function EmailGate() {
 
   return (
     <Card className="p-6">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-strong">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-ink">
         <MailIcon size={24} />
       </span>
       <h2 className="mt-4 text-lg font-semibold">See your notifications</h2>
@@ -51,11 +52,12 @@ function EmailGate() {
           Your email
         </label>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Input id={id} type="email" autoComplete="email" placeholder="you@example.com" value={value} onChange={(e) => (setValue(e.target.value), setProblem(null))} aria-invalid={problem ? true : undefined} aria-describedby={problem ? `${id}-problem` : undefined} />
+          <Input id={id} type="email" autoComplete="email" placeholder="you@example.com" value={value} onChange={(e) => (setValue(e.target.value), setProblem(null))} aria-invalid={problem ? true : undefined} aria-describedby={problem ? `${id}-hint ${id}-problem` : `${id}-hint`} />
           <Button type="submit" variant="primary" className="h-11">
             Show my notifications
           </Button>
         </div>
+        <p id={`${id}-hint`} className="mt-1.5 text-xs text-muted">Enter the same email you used when asking for an alert.</p>
         {problem && (
           <p id={`${id}-problem`} role="alert" className="mt-2 text-sm text-bad">
             {problem}
@@ -70,7 +72,7 @@ function EmailGate() {
 }
 
 function Inbox({ email }: { email: string }) {
-  const { setEmail, notifications, lastSeen, markAllRead } = useAccount();
+  const { setEmail, notifications, notificationsUnavailable, lastSeen, markAllRead, markRead, refresh } = useAccount();
   const [tab, setTab] = useState<Tab>("feed");
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<number | null>(null);
@@ -86,15 +88,18 @@ function Inbox({ email }: { email: string }) {
   // What was unread when this page opened stays highlighted ("New"); a moment later it counts as read, so the badge
   // clears. The "unread when opened" value is latched during the first render that has data (a ref, not state), so
   // "New" shows together with the notification instead of one render later.
-  const openedWith = useRef<number | null>(null);
-  if (notifications !== null && openedWith.current === null) openedWith.current = lastSeen;
-  const seenAtOpen = openedWith.current;
-  const loaded = notifications !== null;
+  const previousNotificationIds = useRef<Set<number> | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   useEffect(() => {
-    if (!loaded) return;
-    const timer = setTimeout(markAllRead, 1500);
-    return () => clearTimeout(timer);
-  }, [loaded, markAllRead]);
+    if (notifications === null) return;
+    const ids = new Set(notifications.map((n) => n.id));
+    if (previousNotificationIds.current) {
+      const added = notifications.filter((n) => !previousNotificationIds.current!.has(n.id));
+      if (added.length) setAnnouncement(`${added.length} new ${added.length === 1 ? "notification" : "notifications"}.`);
+    }
+    previousNotificationIds.current = ids;
+  }, [notifications]);
+  const unreadCount = notifications?.filter((n) => n.id > lastSeen).length ?? 0;
 
   async function cancel(s: RestockSubscription) {
     setCancelling(s.id);
@@ -135,17 +140,20 @@ function Inbox({ email }: { email: string }) {
       />
 
       {tab === "feed" && (
-        <section aria-label="Notifications" aria-live="polite" className="space-y-3">
-          {notifications === null && <Skeleton className="h-24" />}
+        <section aria-label="Notifications" className="space-y-3">
+          <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
+          {notificationsUnavailable && <Alert tone="warn" title="We couldn't refresh your notifications" action={<Button size="sm" variant="secondary" onClick={() => void refresh()}>Try again</Button>}>Showing the last notifications we received. Check your connection and try again.</Alert>}
+          {unreadCount > 0 && <div className="flex justify-end"><Button size="sm" variant="secondary" onClick={markAllRead}>Mark all as read ({unreadCount})</Button></div>}
+          {notifications === null && <><p role="status" className="sr-only">Loading notifications</p><Skeleton className="h-24" /></>}
           {notifications?.length === 0 && (
             <EmptyState icon={<BellIcon />} title="No notifications yet" action={<LinkButton href="/" variant="primary"><SearchIcon size={16} /> Search for a medicine</LinkButton>}>
               When a pharmacy restocks a medicine you&apos;re waiting for, it appears here.
             </EmptyState>
           )}
           {notifications?.map((n) => {
-            const isNew = seenAtOpen !== null && n.id > seenAtOpen;
+            const isNew = n.id > lastSeen;
             return (
-              <Card key={n.id} className={isNew ? "border-brand ring-1 ring-brand" : ""}>
+              <Card key={n.id} className={`overflow-hidden ${isNew ? "border-brand/60 shadow-pop" : ""}`}>
                 <div className="flex items-start gap-3 p-4">
                   <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ok-soft text-ok">
                     <CheckIcon size={18} />
@@ -156,7 +164,7 @@ function Inbox({ email }: { email: string }) {
                       {formatRelativeTime(n.createdAt)} · simulated notification
                     </p>
                   </div>
-                  {isNew && <Badge tone="brand">New</Badge>}
+              {isNew && <><Badge tone="brand">New</Badge><Button size="sm" variant="ghost" aria-label={`Mark ${n.message} as read`} onClick={() => markRead(n.id)}>Mark read</Button></>}
                 </div>
               </Card>
             );
@@ -173,7 +181,7 @@ function Inbox({ email }: { email: string }) {
               {subs.error instanceof ApiError ? subs.error.message : "Something went wrong."}
             </Alert>
           )}
-          {!subs.data && subs.status !== "error" && <Skeleton className="h-20" />}
+          {!subs.data && subs.status !== "error" && <><p role="status" className="sr-only">Loading waiting list</p><Skeleton className="h-20" /></>}
 
           {subs.data && waiting.length === 0 && (
             <EmptyState icon={<BellIcon />} title="You're not waiting for anything" action={<LinkButton href="/" variant="primary">Search for a medicine</LinkButton>}>

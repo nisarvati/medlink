@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatDistance, formatPrice, formatRelativeTime } from "./format";
+import { formatDistance, formatPrice, formatRelativeTime, pluralise } from "./format";
+
+describe("pluralise", () => {
+  it("handles pharmacy counts conversationally", () => {
+    expect(pluralise(1, "pharmacy")).toBe("1 pharmacy");
+    expect(pluralise(5, "pharmacy")).toBe("5 pharmacies");
+  });
+});
 
 describe("formatPrice", () => {
   it("formats rupees, dropping .00", () => {

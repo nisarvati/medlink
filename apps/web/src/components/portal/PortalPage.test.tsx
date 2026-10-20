@@ -88,6 +88,8 @@ describe("PortalPage", () => {
     await userEvent.type(qty, "-4");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/whole number/);
+    expect(qty.getAttribute("aria-invalid")).toBe("true");
+    expect(qty.getAttribute("aria-describedby")).toBe("edit-M001-qty-hint edit-M001-error");
     expect(api.count("PATCH", "/portal/stock/M001")).toBe(0);
 
     await userEvent.clear(qty);

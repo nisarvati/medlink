@@ -10,53 +10,85 @@
  * least WCAG AA contrast (4.5:1) in both themes.
  */
 :root {
-  --canvas: #f3f7f8;
-  --surface: #ffffff;
-  --surface-2: #ebf1f3;
-  --line: #d5e0e4;
-  --ink: #0d1a1f;
-  --muted: #4f626b;
+  --canvas: #F3F2EE;
+  --surface: #FFFFFF;
+  --surface-2: #EAE8E1;
+  --line: #DCDAD2;
+  --control-border: #D6D4CC;
+  --control-hover: #F7F6F2;
+  --control-hover-border: #B8B5AA;
+  --control-shadow: 0 1px 2px rgba(20, 26, 24, 0.04);
+  --ink: #141A18;
+  --muted: #4A5550;
+  --placeholder: #7A8580;
 
-  --brand: #0f766e;
-  --brand-strong: #0b5a54;
-  --brand-soft: #d6f3ed;
-  --on-brand: #ffffff;
+  --brand: #1F6E64;
+  --brand-strong: #16534B;
+  --brand-soft: #E3F1EE;
+  --brand-ink: #124740;
+  --focus: #1F6E64;
+  --on-brand: #FFFFFF;
 
-  --ok: #0b6e43;
-  --ok-soft: #d9f4e6;
-  --warn: #8a5200;
-  --warn-soft: #fcefcf;
-  --bad: #a91f35;
-  --bad-soft: #fde2e7;
-  --info: #0a5f91;
-  --info-soft: #dcefFA;
+  --ok: #15803D;
+  --ok-soft: #DCFCE7;
+  --ok-border: #86EFAC;
+  --warn: #92400E;
+  --warn-soft: #FFFBEB;
+  --warn-border: #FCD34D;
+  --warn-icon: #D97706;
+  --bad: #9E2432;
+  --bad-soft: #FCECEE;
+  --bad-border: #F4BCC3;
+  --info: #1F6E64;
+  --info-soft: #E3F1EE;
 
-  --shadow-card: 0 1px 2px rgb(13 26 31 / 0.05), 0 6px 20px rgb(13 26 31 / 0.06);
-  --shadow-pop: 0 10px 40px rgb(13 26 31 / 0.18);
+  --action-soft: #F2F9F8;
+  --action-border: #BCE0DC;
+  --live: #10B981;
+  --live-glow: rgba(16, 185, 129, 0.22);
+
+  --shadow-card: 0 1px 2px rgb(20 26 24 / 0.035), 0 5px 18px rgb(20 26 24 / 0.045);
+  --shadow-pop: 0 10px 36px rgb(20 26 24 / 0.14);
   color-scheme: light;
 }
 
 .dark {
-  --canvas: #0a1115;
-  --surface: #111b20;
-  --surface-2: #19262c;
-  --line: #26363e;
-  --ink: #e7f0f3;
-  --muted: #9bb0b9;
+  --canvas: #0E1311;
+  --surface: #161E1B;
+  --surface-2: #202B27;
+  --line: #2B3934;
+  --control-border: #2B3934;
+  --control-hover: #202B27;
+  --control-hover-border: #52615B;
+  --control-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --ink: #F0F4F2;
+  --muted: #A0B0AA;
+  --placeholder: #687872;
 
-  --brand: #2dd4bf;
-  --brand-strong: #5eead4;
-  --brand-soft: #0e2f2c;
-  --on-brand: #04201d;
+  --brand: #3AAFA0;
+  --brand-strong: #52C4B5;
+  --brand-soft: #153531;
+  --brand-ink: #7CE2D4;
+  --focus: #4CC3B3;
+  --on-brand: #0B1412;
 
-  --ok: #5ee59f;
-  --ok-soft: #0e2a1d;
-  --warn: #f6c453;
-  --warn-soft: #2f2308;
-  --bad: #ff8fa0;
-  --bad-soft: #35121a;
-  --info: #7cc4f2;
-  --info-soft: #0e2638;
+  --ok: #4ADE80;
+  --ok-soft: #0D2E1E;
+  --ok-border: #1E5638;
+  --warn: #FBBF24;
+  --warn-soft: #2C1E0A;
+  --warn-border: #5C3D14;
+  --warn-icon: #FBBF24;
+  --bad: #F98A97;
+  --bad-soft: #321419;
+  --bad-border: #5E252E;
+  --info: #3AAFA0;
+  --info-soft: #153531;
+
+  --action-soft: #153531;
+  --action-border: #28564F;
+  --live: #10B981;
+  --live-glow: rgba(16, 185, 129, 0.22);
 
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 20px rgb(0 0 0 / 0.3);
   --shadow-pop: 0 10px 40px rgb(0 0 0 / 0.6);
@@ -68,42 +100,95 @@
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-line: var(--line);
+  --color-control-border: var(--control-border);
+  --color-control-hover: var(--control-hover);
+  --color-control-hover-border: var(--control-hover-border);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
+  --color-placeholder: var(--placeholder);
   --color-brand: var(--brand);
   --color-brand-strong: var(--brand-strong);
   --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-focus: var(--focus);
   --color-on-brand: var(--on-brand);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
+  --color-ok-border: var(--ok-border);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
+  --color-warn-border: var(--warn-border);
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
+  --color-bad-border: var(--bad-border);
+  --color-warn-icon: var(--warn-icon);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
+  --color-action-soft: var(--action-soft);
+  --color-action-border: var(--action-border);
+  --color-live: var(--live);
+  --shadow-control: var(--control-shadow);
   --shadow-card: var(--shadow-card);
   --shadow-pop: var(--shadow-pop);
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Satoshi", "Avenir Next", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-editorial: var(--font-newsreader), Georgia, "Times New Roman", serif;
 }
 
 html {
   scroll-behavior: smooth;
+  background: var(--canvas);
 }
 
 body {
   @apply bg-canvas font-sans text-ink antialiased;
   font-feature-settings: "cv11", "ss01";
+  min-height: 100vh;
+  background-image: radial-gradient(ellipse at 50% -22rem, color-mix(in srgb, var(--brand-soft) 62%, transparent), transparent 48rem);
+}
+
+::selection {
+  color: var(--brand-ink);
+  background: var(--brand-soft);
+}
+
+.dark ::selection {
+  color: var(--ink);
+}
+
+.editorial-title {
+  font-family: var(--font-editorial);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.surface-lift {
+  transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.surface-lift:hover {
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--line));
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-2px);
 }
 
 /* Visible keyboard focus everywhere, in the brand colour. In the base layer, so utilities such as outline-none
    (a field whose wrapper draws its own focus ring) can still override it. */
 @layer base {
   :focus-visible {
-    outline: 2px solid var(--brand);
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
     border-radius: 6px;
   }
+}
+
+.search-field {
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.search-field:focus-within {
+  border-width: 2px;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 15%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -114,16 +199,25 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  .surface-lift:hover {
+    transform: none;
+  }
 }
 
 /* The live pulse next to "live stock". */
 @keyframes live-pulse {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent); }
+  0% { box-shadow: 0 0 0 3px var(--live-glow); }
   70% { box-shadow: 0 0 0 7px transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
+  100% { box-shadow: 0 0 0 3px var(--live-glow); }
 }
 .live-dot {
-  animation: live-pulse 2s infinite;
+  animation: live-pulse 3s infinite;
+  box-shadow: 0 0 0 3px var(--live-glow);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Map: marker bubbles and dark-theme tiles. */
@@ -132,11 +226,113 @@ body {
   width: 34px;
   height: 34px;
 }
-.ml-marker-in { background: #0b6e43; color: #fff; }
-.ml-marker-low { background: #b36b00; color: #fff; }
-.ml-marker-out { background: #a91f35; color: #fff; }
-.ml-marker-you { background: #0a5f91; color: #fff; width: 18px; height: 18px; border-width: 3px; }
+.ml-marker-in { background: var(--ok-soft); color: var(--ok); border-color: var(--ok-border); }
+.ml-marker-low { background: var(--warn-soft); color: var(--warn); border-color: var(--warn-border); }
+.ml-marker-out { background: var(--bad-soft); color: var(--bad); border-color: var(--bad-border); }
+.ml-marker-you { background: var(--info); color: var(--on-brand); width: 18px; height: 18px; border-width: 3px; }
 .dark .leaflet-tile-pane { filter: brightness(0.78) contrast(1.05) saturate(0.85); }
 .leaflet-container { font-family: inherit; }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-pop); }
 .leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
+
+/* MedLink's visual language: pharmacy ledger, warm paper and clear wayfinding. */
+body { background-image: none; }
+.home-view { padding-bottom: 3rem; }
+.home-hero {
+  position: relative;
+  isolation: isolate;
+  padding: clamp(2.25rem, 6vw, 5rem) clamp(1rem, 4vw, 3.5rem) 2.25rem;
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  background: var(--surface);
+  box-shadow: 0 16px 48px rgb(34 44 39 / 0.045);
+}
+.home-hero::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  height: 7px;
+  border-radius: 1.5rem 1.5rem 0 0;
+  background: linear-gradient(90deg, var(--brand) 0 22%, transparent 22% 100%);
+  content: "";
+}
+.home-live { border-bottom: 1px solid var(--line); padding: .55rem .1rem; }
+.home-title { font-size: clamp(3rem, 7.5vw, 6.25rem); line-height: .98; letter-spacing: -.055em; }
+.home-title span { color: var(--brand); font-style: italic; }
+.home-deck { font-size: clamp(1rem, 1.4vw, 1.2rem); line-height: 1.7; }
+.home-search { max-width: 54rem; margin-inline: auto; }
+.home-search > form > div { border-radius: .85rem; box-shadow: 0 8px 26px rgb(30 49 43 / .07); }
+.home-trust { max-width: 58rem; margin-inline: auto; }
+.section-kicker { color: var(--brand); font-size: .7rem; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
+.essentials-section { padding-block: 1rem; }
+.essentials-grid { overflow: hidden; border-block: 1px solid var(--line); background: var(--surface); }
+.essential-item { min-height: 10rem; border-right: 1px solid var(--line); }
+.essential-item:last-child { border-right: 0; }
+.essential-item:nth-child(n + 3) { border-top: 1px solid var(--line); }
+.journey-section { display: grid; grid-template-columns: minmax(17rem, .85fr) minmax(0, 1.15fr); gap: clamp(2rem, 8vw, 8rem); padding-block: clamp(4rem, 9vw, 8rem); align-items: start; }
+.journey-intro { max-width: 28rem; }
+.journey-intro h2 { margin-top: .7rem; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 1.02; }
+.journey-intro > p:last-child { margin-top: 1rem; color: var(--muted); font-size: 1rem; line-height: 1.75; }
+.journey-steps { display: grid; gap: .75rem; }
+.journey-steps li { display: grid; grid-template-columns: 3rem minmax(0, 1fr) 2rem; align-items: start; gap: 1rem; min-height: 10rem; padding: 1.4rem 0; border-top: 1px solid var(--line); background: var(--canvas); }
+.journey-number { color: var(--brand); font-size: .74rem; font-weight: 750; letter-spacing: .12em; }
+.journey-steps h3 { font-family: var(--font-editorial); font-size: 1.55rem; font-weight: 500; line-height: 1.2; }
+.journey-steps p { max-width: 33rem; margin-top: .6rem; color: var(--muted); font-size: .92rem; line-height: 1.65; }
+.journey-mark { color: var(--brand); font-size: 1.25rem; }
+
+.medicine-context { border-radius: 1rem; box-shadow: none; }
+.results-list { max-width: 62rem; margin-inline: auto; }
+.result-card { border-radius: .9rem; box-shadow: 0 2px 8px rgb(30 38 34 / .035); }
+.result-card-best { border-left-width: 4px; }
+.pharmacy-directory { overflow: hidden; border-block: 1px solid var(--line); background: var(--surface); }
+.directory-row { min-height: 8rem; border: 0; border-radius: 0; border-bottom: 1px solid var(--line); box-shadow: none; }
+.directory-row:last-child { border-bottom: 0; }
+.directory-row:hover { background: color-mix(in srgb, var(--surface) 75%, var(--brand-soft)); transform: none; box-shadow: none; }
+.pharmacies-view > header { max-width: none; display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, .55fr); column-gap: 3rem; align-items: end; border: 0; padding-bottom: 1.25rem; }
+.pharmacies-view > header h1 { max-width: 15ch; font-size: clamp(2.7rem, 5vw, 4.6rem); }
+.pharmacies-view > header > p:first-child { grid-column: 1; grid-row: 1; }
+.pharmacies-view > header h1 { grid-column: 1; grid-row: 2; }
+.pharmacies-view > header p:last-child { grid-column: 2; grid-row: 2; max-width: 30rem; justify-self: end; line-height: 1.7; }
+.pharmacy-overview { border-radius: 1.1rem; box-shadow: none; }
+.pharmacy-overview h1 { font-size: clamp(2.5rem, 5vw, 4rem); }
+.pharmacy-overview dl > div { border-top: 1px solid currentColor; border-radius: 0; padding-inline: .15rem; }
+.pharmacy-view section > ul { border-radius: .9rem; box-shadow: none; }
+.pharmacy-view section > ul > li { padding-block: 1.15rem; }
+.notifications-view > header { border: 0; }
+.notifications-view > header h1 { max-width: 11ch; font-size: clamp(2.8rem, 5vw, 4.3rem); line-height: .98; }
+.notifications-view section > div:has(> div > div > p) { border-radius: .85rem; }
+.portal-signin { border-radius: 1rem; box-shadow: none; }
+.portal-signin h1 { font-size: 2.8rem; }
+.portal-view > div:first-child { border-radius: .9rem; box-shadow: none; }
+.portal-view ul.divide-y { border-radius: .9rem; box-shadow: none; }
+.portal-view ul.divide-y > li { padding-block: 1.1rem; }
+.search-results-view > section > p[aria-live] { font-size: .94rem; }
+.search-results-view > section > p[aria-live] > span:first-child { font-family: var(--font-editorial); font-size: 1.35rem; line-height: 1.35; }
+.search-results-view [role="group"] > label { min-height: 2.75rem; }
+.search-results-view select { border-radius: .65rem; }
+.search-results-view > section > div[role="alert"], .search-results-view > section > div[role="status"] { border-radius: .75rem; }
+.search-results-view .empty-state { border-radius: .75rem; }
+
+header.sticky { backdrop-filter: blur(16px); background: color-mix(in srgb, var(--surface) 92%, transparent); }
+.dark .home-hero { box-shadow: 0 16px 48px rgb(0 0 0 / .16); }
+.dark .result-card { box-shadow: 0 2px 8px rgb(0 0 0 / .12); }
+
+@media (max-width: 639px) {
+  .home-hero { padding: 2rem 1rem 1.5rem; border-radius: 1.1rem; }
+  .home-title { font-size: clamp(2.7rem, 13vw, 4.15rem); }
+  .home-trust { justify-content: flex-start; gap: .65rem 1rem; }
+  .essential-item { min-height: auto; border-right: 0; }
+  .essential-item:nth-child(n + 2) { border-top: 1px solid var(--line); }
+  .journey-section { grid-template-columns: 1fr; gap: 1.5rem; padding-block: 4rem; }
+  .journey-steps li { min-height: 8rem; }
+  .pharmacies-view > header { grid-template-columns: 1fr; gap: .85rem; }
+  .pharmacies-view > header > p:first-child, .pharmacies-view > header h1, .pharmacies-view > header p:last-child { grid-column: 1; grid-row: auto; }
+  .pharmacies-view > header p:last-child { justify-self: start; }
+  .directory-row { padding-inline: 1rem; }
+  .result-card { padding: 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .live-dot { animation: none; }
+}

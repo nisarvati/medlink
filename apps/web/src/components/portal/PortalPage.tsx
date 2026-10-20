@@ -35,14 +35,14 @@ export function PortalPage() {
   const signedOut = session.status === "error" && session.error instanceof PortalError && session.error.kind === "unauthenticated";
 
   if (session.status === "idle" || (session.status === "loading" && !session.data)) {
-    return <Skeleton className="mx-auto h-64 max-w-md" />;
+    return <><h1 className="sr-only">Pharmacy portal</h1><p role="status" className="sr-only">Loading pharmacy portal</p><Skeleton className="mx-auto h-64 max-w-md" /></>;
   }
   if (signedOut) return <SignIn onSignedIn={session.reload} />;
   if (session.status === "error" && !session.data) {
     return (
-      <Alert tone="bad" title="We couldn't open the portal" action={<Button size="sm" onClick={session.reload}>Try again</Button>}>
+      <><h1 className="sr-only">Pharmacy portal</h1><Alert tone="bad" title="We couldn't open the portal" action={<Button size="sm" onClick={session.reload}>Try again</Button>}>
         {message(session.error)}
-      </Alert>
+      </Alert></>
     );
   }
   return <StockManager session={session.data!} onSignedOut={session.reload} />;
@@ -68,19 +68,20 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   }
 
   return (
-    <Card className="mx-auto max-w-md p-6">
-      <h1 className="text-2xl font-bold tracking-tight">Pharmacy sign in</h1>
+      <Card className="portal-signin mx-auto max-w-md p-6">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Pharmacy workspace</p>
+      <h1 className="editorial-title mt-2 text-3xl leading-tight">Pharmacy sign in</h1>
       <p className="mt-1 text-sm text-muted">For pharmacy staff. Changes you make here reach shoppers within a few seconds.</p>
       <form onSubmit={submit} className="mt-5 space-y-4">
         <div>
           <label htmlFor="portal-email" className="mb-1 block text-sm font-medium">Email</label>
-          <Input id="portal-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input id="portal-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} aria-describedby={error ? "portal-signin-error" : undefined} />
         </div>
         <div>
           <label htmlFor="portal-password" className="mb-1 block text-sm font-medium">Password</label>
-          <Input id="portal-password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input id="portal-password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={error ? "portal-signin-error" : undefined} />
         </div>
-        {error && <Alert tone="bad">{error}</Alert>}
+        {error && <Alert id="portal-signin-error" tone="bad">{error}</Alert>}
         <Button type="submit" variant="primary" size="lg" loading={busy} className="w-full">Sign in</Button>
       </form>
     </Card>
@@ -130,11 +131,11 @@ function StockManager({ session, onSignedOut }: { session: PortalSession; onSign
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
+    <div className="portal-view space-y-6">
+      <Card className="flex flex-wrap items-center justify-between gap-4 overflow-hidden p-5 sm:p-7">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-muted"><StoreIcon size={16} /> Pharmacy portal</p>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{session.pharmacy.name}</h1>
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-brand"><StoreIcon size={16} /> Pharmacy workspace</p>
+          <h1 className="editorial-title mt-1 text-3xl leading-tight sm:text-4xl">{session.pharmacy.name}</h1>
           <p className="text-sm text-muted">Signed in as {session.email}</p>
         </div>
         <Button variant="secondary" onClick={leave}>Sign out</Button>
@@ -161,6 +162,7 @@ function StockManager({ session, onSignedOut }: { session: PortalSession; onSign
 
         {!stock.data && stock.status !== "error" && (
           <div className="space-y-2" aria-label="Loading stock">
+            <p role="status" className="sr-only">Loading pharmacy stock</p>
             {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-16" />)}
           </div>
         )}
@@ -238,15 +240,17 @@ function StockEditor({ item, onSaved, onFailed, onCancel }: { item: PortalStockI
     <form onSubmit={submit} noValidate className="mt-3 flex flex-wrap items-end gap-3 rounded-xl bg-canvas p-3.5">
       <div>
         <label htmlFor={`${id}-qty`} className="mb-1 block text-xs font-semibold text-muted">Quantity on the shelf</label>
-        <Input id={`${id}-qty`} type="number" inputMode="numeric" min={0} step={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-36" />
+        <Input id={`${id}-qty`} type="number" inputMode="numeric" min={0} step={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-qty-hint ${id}-error` : `${id}-qty-hint`} className="w-36" />
+        <p id={`${id}-qty-hint`} className="sr-only">Enter a whole number of units, zero or more.</p>
       </div>
       <div>
         <label htmlFor={`${id}-price`} className="mb-1 block text-xs font-semibold text-muted">Price (₹)</label>
-        <Input id={`${id}-price`} type="number" inputMode="decimal" min={0.01} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} className="w-32" />
+        <Input id={`${id}-price`} type="number" inputMode="decimal" min={0.01} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-price-hint ${id}-error` : `${id}-price-hint`} className="w-32" />
+        <p id={`${id}-price-hint`} className="sr-only">Enter a price greater than zero, with up to two decimal places.</p>
       </div>
       <Button type="submit" variant="primary" loading={saving}>Save</Button>
       <Button type="button" variant="ghost" onClick={onCancel} disabled={saving}>Cancel</Button>
-      {error && <p role="alert" className="basis-full text-sm font-medium text-bad">{error}</p>}
+      {error && <p id={`${id}-error`} role="alert" className="basis-full text-sm font-medium text-bad">{error}</p>}
     </form>
   );
 }
@@ -294,22 +298,24 @@ function AddMedicine({
     <form onSubmit={submit} noValidate className="flex flex-wrap items-end gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card">
       <div className="min-w-0 flex-1 basis-56">
         <label htmlFor="add-medicine" className="mb-1 block text-xs font-semibold text-muted">Medicine</label>
-        <Select id="add-medicine" value={code} onChange={(e) => setCode(e.target.value)} className="w-full">
+        <Select id="add-medicine" value={code} onChange={(e) => setCode(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? "add-error" : undefined} className="w-full">
           <option value="">{options ? (options.length ? "Choose a medicine" : "You already list every medicine") : loadFailed ? "Couldn't load the list" : "Loading…"}</option>
           {options?.map((o) => <option key={o.medicineCode} value={o.medicineCode}>{o.brandName} {o.dosage} · {o.form}</option>)}
         </Select>
       </div>
       <div>
         <label htmlFor="add-qty" className="mb-1 block text-xs font-semibold text-muted">Quantity</label>
-        <Input id="add-qty" type="number" inputMode="numeric" min={0} step={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-28" />
+        <Input id="add-qty" type="number" inputMode="numeric" min={0} step={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? "add-qty-hint add-error" : "add-qty-hint"} className="w-28" />
+        <p id="add-qty-hint" className="sr-only">Enter a whole number of units, zero or more.</p>
       </div>
       <div>
         <label htmlFor="add-price" className="mb-1 block text-xs font-semibold text-muted">Price (₹)</label>
-        <Input id="add-price" type="number" inputMode="decimal" min={0.01} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} className="w-32" />
+        <Input id="add-price" type="number" inputMode="decimal" min={0.01} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? "add-price-hint add-error" : "add-price-hint"} className="w-32" />
+        <p id="add-price-hint" className="sr-only">Enter a price greater than zero, with up to two decimal places.</p>
       </div>
       <Button type="submit" variant="primary" loading={saving}>Add</Button>
       <Button type="button" variant="ghost" onClick={onCancel} disabled={saving}>Cancel</Button>
-      {error && <p role="alert" className="basis-full text-sm font-medium text-bad">{error}</p>}
+      {error && <p id="add-error" role="alert" className="basis-full text-sm font-medium text-bad">{error}</p>}
     </form>
   );
 }

@@ -7,27 +7,28 @@ export const cx = (...parts: (string | false | null | undefined)[]) => parts.fil
 type Tone = "neutral" | "brand" | "ok" | "warn" | "bad" | "info";
 
 const TONE: Record<Tone, string> = {
-  neutral: "bg-surface-2 text-muted",
-  brand: "bg-brand-soft text-brand-strong",
-  ok: "bg-ok-soft text-ok",
-  warn: "bg-warn-soft text-warn",
-  bad: "bg-bad-soft text-bad",
+  neutral: "border border-control-border bg-surface text-muted shadow-control",
+  brand: "border border-brand bg-brand text-on-brand shadow-sm",
+  ok: "border border-ok-border bg-ok-soft text-ok",
+  warn: "border border-warn-border bg-warn-soft text-warn",
+  bad: "border border-bad-border bg-bad-soft text-bad",
   info: "bg-info-soft text-info",
 };
 
 /* ------------------------------------------------------------------ Button */
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "directions";
 type Size = "sm" | "md" | "lg";
 
 const VARIANT: Record<Variant, string> = {
   primary: "bg-brand text-on-brand hover:bg-brand-strong hover:text-on-brand shadow-sm",
-  secondary: "border border-line bg-surface text-ink hover:bg-surface-2",
-  ghost: "text-ink hover:bg-surface-2",
+  secondary: "border border-control-border bg-surface text-ink shadow-control hover:border-control-hover-border hover:bg-control-hover",
+  ghost: "text-ink hover:bg-control-hover",
   danger: "border border-line bg-surface text-bad hover:bg-bad-soft",
+  directions: "border border-action-border bg-action-soft text-brand hover:border-brand hover:bg-brand hover:text-on-brand",
 };
 const SIZE: Record<Size, string> = {
-  sm: "h-8 gap-1.5 rounded-lg px-3 text-sm",
+  sm: "min-h-11 gap-1.5 rounded-lg px-3 text-sm md:h-9 md:min-h-0",
   md: "h-10 gap-2 rounded-xl px-4 text-sm",
   lg: "h-12 gap-2 rounded-xl px-6 text-base",
 };
@@ -105,17 +106,17 @@ export function Spinner({ className }: { className?: string }) {
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden="true" className={cx("animate-pulse rounded-xl bg-surface-2", className)} />;
+  return <div aria-hidden="true" className={cx("animate-pulse rounded-xl bg-line/60", className)} />;
 }
 
-export function Alert({ tone = "info", title, children, className, action }: { tone?: "info" | "ok" | "warn" | "bad"; title?: string; children?: ReactNode; className?: string; action?: ReactNode }) {
+export function Alert({ id, tone = "info", title, children, className, action }: { id?: string; tone?: "info" | "ok" | "warn" | "bad"; title?: string; children?: ReactNode; className?: string; action?: ReactNode }) {
   const Icon = tone === "ok" ? CheckIcon : tone === "info" ? InfoIcon : AlertIcon;
   return (
-    <div role={tone === "bad" ? "alert" : "status"} className={cx("flex gap-3 rounded-xl p-3.5 text-sm", TONE[tone], className)}>
-      <Icon className="mt-0.5 shrink-0" />
+    <div id={id} role={tone === "bad" ? "alert" : "status"} className={cx("flex gap-3 rounded-xl p-3.5 text-sm", TONE[tone], className)}>
+      <Icon className={cx("mt-0.5 shrink-0", tone === "warn" && "text-warn-icon")} />
       <div className="min-w-0 flex-1">
         {title && <p className="font-semibold">{title}</p>}
-        {children && <div className={cx(title && "mt-0.5", "opacity-95")}>{children}</div>}
+      {children && <div className={cx(title && "mt-0.5")}>{children}</div>}
       </div>
       {action}
     </div>
@@ -126,7 +127,7 @@ export function EmptyState({ icon, title, children, action, level = 3 }: { icon?
   const Heading = `h${level}` as "h1" | "h2" | "h3";
   return (
     <div className="flex flex-col items-center rounded-2xl border border-dashed border-line bg-surface px-6 py-10 text-center">
-      {icon && <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-muted">{icon}</div>}
+      {icon && <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface text-muted">{icon}</div>}
       <Heading className="text-base font-semibold">{title}</Heading>
       {children && <p className="mt-1 max-w-md text-sm text-muted">{children}</p>}
       {action && <div className="mt-4">{action}</div>}
@@ -136,7 +137,7 @@ export function EmptyState({ icon, title, children, action, level = 3 }: { icon?
 
 /* -------------------------------------------------------------------- Forms */
 
-const FIELD = "w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink placeholder:text-muted/80 transition-colors hover:border-muted/60 focus:border-brand";
+const FIELD = "w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink placeholder:text-placeholder transition-colors hover:border-muted/60 focus:border-focus";
 
 export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={cx(FIELD, "h-11", className)} />;
@@ -144,7 +145,7 @@ export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputEleme
 
 export function Select({ className, children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select {...rest} className={cx(FIELD, "h-10 cursor-pointer pr-8", className)}>
+    <select {...rest} className={cx(FIELD, "min-h-11 cursor-pointer border-control-border bg-surface pr-8 shadow-control transition-colors hover:border-control-hover-border hover:bg-control-hover md:h-10 md:min-h-0", className)}>
       {children}
     </select>
   );
@@ -158,8 +159,8 @@ export function Chip({ pressed, className, children, ...rest }: ButtonHTMLAttrib
       {...rest}
       aria-pressed={pressed}
       className={cx(
-        "inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-sm font-medium transition-colors",
-        pressed ? "border-brand bg-brand-soft text-brand-strong" : "border-line bg-surface text-ink hover:bg-surface-2",
+        "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-sm font-medium transition-colors md:h-9 md:min-h-0",
+        pressed ? "border-brand bg-brand-soft text-brand-ink" : "border-control-border bg-surface text-ink shadow-control hover:border-control-hover-border hover:bg-control-hover",
         className,
       )}
     >
@@ -188,8 +189,8 @@ export function Segmented<T extends string>({
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
           className={cx(
-            "inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors",
-            value === o.value ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink",
+            "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors md:h-8 md:min-h-0",
+            value === o.value ? "bg-surface text-ink shadow-sm" : "text-muted hover:bg-control-hover hover:text-ink",
           )}
         >
           {o.icon}
@@ -202,5 +203,5 @@ export function Segmented<T extends string>({
 
 /** The green pulse that says "this is live". */
 export function LiveDot({ className }: { className?: string }) {
-  return <span aria-hidden="true" className={cx("live-dot inline-block h-2 w-2 rounded-full bg-ok", className)} />;
+  return <span aria-hidden="true" className={cx("live-dot inline-block h-2 w-2 rounded-full bg-live", className)} />;
 }
