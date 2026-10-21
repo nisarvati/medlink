@@ -2,6 +2,8 @@ node_modules/
 dist/
 .next/
 .next-redesign/
+.next-landing/
+.next-build/
 coverage/
 .env
 .env.*
