@@ -21,7 +21,7 @@ export function V1Landing() {
       </a>
 
       <header className={s.header}>
-        <Link href="/landing/v1" className={s.mark} aria-label="MedLink home">
+        <Link href="/" className={s.mark} aria-label="MedLink home">
           MedLink<span aria-hidden="true">®</span>
         </Link>
         <nav aria-label="Main" className={s.nav}>
@@ -62,6 +62,8 @@ export function V1Landing() {
               className={s.slot}
               width={1600}
               height={2000}
+              src="/images/landing/v1-hero.webp"
+              alt="Illustration: independent pharmacies, each marked as a node on a contour map, joined by fine lines to a single point above a medicine carton, bottle, blister pack and capsules."
               label="Monumental topographic print of a city: pharmacy nodes, availability signals, fine connecting lines"
             />
             <p className={`${s.meta} ${s.figCap}`} aria-hidden="true">

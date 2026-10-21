@@ -17,7 +17,6 @@ import { V2Landing } from "./v2/V2Landing";
 import { V3Landing } from "./v3/V3Landing";
 import { V4Landing } from "./v4/V4Landing";
 import { V5Landing } from "./v5/V5Landing";
-import LandingIndex from "../../app/landing/page";
 
 const VARIANTS = [
   ["v1", V1Landing],
@@ -28,7 +27,7 @@ const VARIANTS = [
 ] as const;
 
 /** Routes that exist in the app, plus the landing previews themselves. */
-const ALLOWED = new Set(["/portal", "/pharmacies", "/notifications", "/landing/v1", "/landing/v2", "/landing/v3", "/landing/v4", "/landing/v5"]);
+const ALLOWED = new Set(["/", "/portal", "/pharmacies", "/notifications", "/landing/v1", "/landing/v2", "/landing/v3", "/landing/v4", "/landing/v5"]);
 
 beforeEach(() => {
   localStorage.clear();
@@ -66,7 +65,7 @@ describe.each(VARIANTS)("landing direction %s", (_name, Variant) => {
     const hrefs = Array.from(container.querySelectorAll("a[href]")).map((a) => a.getAttribute("href")!);
     for (const href of hrefs) {
       if (href.startsWith("#")) expect(container.querySelector(`[id="${href.slice(1)}"]`), `anchor ${href}`).not.toBeNull();
-      else if (href.startsWith("/?q=")) continue;
+      else if (href.startsWith("/search?q=")) continue;
       else expect(ALLOWED.has(href), `route ${href}`).toBe(true);
     }
     expect(screen.queryByRole("link", { name: /privacy|terms/i })).toBeNull();
@@ -78,8 +77,14 @@ describe.each(VARIANTS)("landing direction %s", (_name, Variant) => {
     const slots = container.querySelectorAll('[data-slot="hero-image"]');
     expect(slots).toHaveLength(1);
     expect((slots[0] as HTMLElement).style.aspectRatio).toMatch(/^\d+ \/ \d+$/);
-    expect(slots[0]!.getAttribute("role")).toBe("img");
-    expect(slots[0]!.textContent).toMatch(/Image slot · \d+:\d+ · \d+ × \d+ px/);
+    const art = slots[0]!.querySelector("img");
+    if (art) {
+      // a direction whose final artwork is in place (V1): the image fills the slot
+      expect(art.getAttribute("src")).toMatch(/^\/images\/landing\/.+\.webp$/);
+    } else {
+      expect(slots[0]!.getAttribute("role")).toBe("img");
+      expect(slots[0]!.textContent).toMatch(/Image slot · \d+:\d+ · \d+ × \d+ px/);
+    }
   });
 
   it("states what MedLink does not do, and shows no invented claims", () => {
@@ -96,14 +101,5 @@ describe.each(VARIANTS)("landing direction %s", (_name, Variant) => {
     renderWithProviders(<Variant />);
     const table = await screen.findByRole("table");
     expect(within(table).getByText(/Crocin 500mg/)).toBeTruthy();
-  });
-});
-
-describe("landing index", () => {
-  it("links all five directions and says the homepage is unchanged", () => {
-    renderWithProviders(<LandingIndex />);
-    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
-    for (const n of [1, 2, 3, 4, 5]) expect(hrefs).toContain(`/landing/v${n}`);
-    expect(document.body.textContent).toMatch(/homepage at \/ is unchanged/);
   });
 });

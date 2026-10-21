@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { Db } from "@medlink/db";
 import type { ChangeResult, PharmacySimulator } from "@medlink/pharmacy-ops";
-import { clearedCookie, COOKIE_NAME, createSessionToken, DUMMY_HASH, readCookie, readSessionToken, sessionCookie, verifyPassword, type Session } from "./auth.js";
+import { clearedCookie, COOKIE_NAME, createSessionToken, DUMMY_HASH, hashPassword, readCookie, readSessionToken, sessionCookie, verifyPassword, type Session } from "./auth.js";
 import type { Config } from "./config.js";
 import { AppError } from "./errors.js";
 
@@ -11,6 +11,15 @@ const price = z.number().positive().max(1_000_000).multipleOf(0.01);
 const medicineCode = z.string().regex(/^M\d{3,}$/, "medicine code must look like M001");
 
 const loginBody = z.object({ email: z.string().trim().min(1).max(254), password: z.string().min(1).max(200) }).strict();
+const signupBody = z
+  .object({
+    email: z.string().trim().toLowerCase().email().max(254),
+    password: z.string().min(10, "Password must be at least 10 characters").max(200),
+    pharmacyCode: z.string().trim().toUpperCase().regex(/^P\d{3,}$/, "pharmacy code must look like P001"),
+  })
+  .strict();
+/** Open requests allowed per pharmacy, so an unauthenticated form cannot fill the table. */
+const MAX_PENDING_PER_PHARMACY = 20;
 const addBody = z.object({ medicineCode, quantity, price }).strict();
 const patchBody = z
   .object({ quantity: quantity.optional(), price: price.optional() })
@@ -32,8 +41,8 @@ export function portalRoutes(app: FastifyInstance, { db, pharmacies, sim, config
   const requireSession = async (req: FastifyRequest): Promise<Session & { email: string }> => {
     const session = readSessionToken(readCookie(req.headers.cookie, COOKIE_NAME), config.sessionSecret);
     if (!session) throw new AppError(401, "UNAUTHENTICATED", "Please sign in");
-    // The cookie is stateless, so check the account still exists (and still belongs to this pharmacy) on every request.
-    const { rows } = await db.query<{ email: string }>("SELECT email FROM pharmacy_users WHERE id = $1 AND pharmacy_code = $2", [session.userId, session.pharmacyCode]);
+    // The cookie is stateless, so check the account still exists, is approved and still belongs to this pharmacy on every request.
+    const { rows } = await db.query<{ email: string }>("SELECT email FROM pharmacy_users WHERE id = $1 AND pharmacy_code = $2 AND status = 'active'", [session.userId, session.pharmacyCode]);
     if (!rows[0]) throw new AppError(401, "UNAUTHENTICATED", "Please sign in");
     return { ...session, email: rows[0].email };
   };
@@ -45,16 +54,42 @@ export function portalRoutes(app: FastifyInstance, { db, pharmacies, sim, config
   const pharmacyName = async (code: string) =>
     ((await db.query<{ name: string }>("SELECT name FROM pharmacies WHERE code = $1", [code])).rows[0]?.name ?? code);
 
+  /**
+   * Asks for staff access to one pharmacy. The account is created 'pending' and cannot sign in until an administrator
+   * approves it (npm run portal:users). The answer is the same whether or not the email is already registered, so the
+   * form cannot be used to find out which emails have accounts.
+   */
+  app.post("/portal/signup", async (req, reply) => {
+    const { email, password, pharmacyCode } = signupBody.parse(req.body);
+    const known = await db.query("SELECT 1 FROM pharmacies WHERE code = $1", [pharmacyCode]);
+    if (!known.rows[0]) throw new AppError(404, "UNKNOWN_PHARMACY", "No pharmacy has that code");
+    const { rows: open } = await db.query<{ n: string }>("SELECT count(*) AS n FROM pharmacy_users WHERE pharmacy_code = $1 AND status = 'pending'", [pharmacyCode]);
+    if (Number(open[0]!.n) >= MAX_PENDING_PER_PHARMACY) {
+      throw new AppError(429, "TOO_MANY_REQUESTS", "This pharmacy has too many requests waiting. Please contact MedLink.");
+    }
+    // Hash before looking at the table, so a taken email takes as long as a new one.
+    const hash = await hashPassword(password);
+    const { rowCount } = await db.query(
+      "INSERT INTO pharmacy_users (email, password_hash, pharmacy_code, status) VALUES ($1, $2, $3, 'pending') ON CONFLICT (lower(email)) DO NOTHING",
+      [email, hash, pharmacyCode],
+    );
+    req.log.info({ pharmacy: pharmacyCode, created: rowCount === 1 }, "portal signup requested");
+    return reply.status(202).send({ data: { status: "pending" } });
+  });
+
   app.post("/portal/login", async (req, reply) => {
     const { email, password } = loginBody.parse(req.body);
-    const { rows } = await db.query<{ id: string; email: string; password_hash: string; pharmacy_code: string }>(
-      "SELECT id, email, password_hash, pharmacy_code FROM pharmacy_users WHERE lower(email) = lower($1)",
+    const { rows } = await db.query<{ id: string; email: string; password_hash: string; pharmacy_code: string; status: string }>(
+      "SELECT id, email, password_hash, pharmacy_code, status FROM pharmacy_users WHERE lower(email) = lower($1)",
       [email],
     );
     const user = rows[0];
     // Verify even when there is no such account, so the response time does not reveal which emails exist.
     const ok = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
     if (!user || !ok) throw new AppError(401, "INVALID_CREDENTIALS", "Wrong email or password");
+    // Said only after the password is right, so it does not reveal which emails have requested access.
+    if (user.status === "pending") throw new AppError(403, "ACCOUNT_PENDING", "Your request is waiting for approval. You can sign in once MedLink has approved it.");
+    if (user.status !== "active") throw new AppError(403, "ACCOUNT_NOT_APPROVED", "This request was not approved. Please contact MedLink.");
     const token = createSessionToken({ userId: Number(user.id), pharmacyCode: user.pharmacy_code, exp: Date.now() + config.sessionMs }, config.sessionSecret);
     reply.header("set-cookie", sessionCookie(token, config.sessionMs, config.secureCookies));
     req.log.info({ userId: Number(user.id), pharmacy: user.pharmacy_code }, "portal login");

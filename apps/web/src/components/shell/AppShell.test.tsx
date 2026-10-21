@@ -26,7 +26,7 @@ describe("AppShell", () => {
     expect(screen.getByRole("contentinfo")).toBeTruthy();
   });
 
-  it.each(["/landing", "/landing/v3"])("leaves %s to draw its own page (no app chrome)", (path) => {
+  it.each(["/", "/landing", "/landing/v3"])("leaves %s to draw its own page (no app chrome)", (path) => {
     nav.pathname = path;
     render(<AppShell><p>landing page</p></AppShell>);
     expect(screen.getByText("landing page")).toBeTruthy();
@@ -34,6 +34,22 @@ describe("AppShell", () => {
     expect(screen.queryByRole("navigation")).toBeNull();
     expect(screen.queryByRole("contentinfo")).toBeNull();
     expect(screen.queryByRole("link", { name: "Skip to content" })).toBeNull();
+  });
+
+  it("applies the app theme to ordinary pages only, never to the homepage or the landing previews", () => {
+    for (const path of ["/search", "/pharmacies", "/pharmacies/2", "/notifications", "/portal"]) {
+      nav.pathname = path;
+      const { container, unmount } = render(<AppShell><p>page</p></AppShell>);
+      expect(container.querySelector(".app-theme"), path).not.toBeNull();
+      expect(container.querySelector(".app-theme main#main"), path).not.toBeNull();
+      unmount();
+    }
+    for (const path of ["/", "/landing", "/landing/v1", "/landing/v2", "/landing/v5"]) {
+      nav.pathname = path;
+      const { container, unmount } = render(<AppShell><p>page</p></AppShell>);
+      expect(container.querySelector(".app-theme"), path).toBeNull();
+      unmount();
+    }
   });
 
   it("does not treat lookalike routes as landing pages", () => {

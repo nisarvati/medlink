@@ -7,7 +7,7 @@ import { medicine, mockApi, offer, pharmacy, renderWithProviders } from "../../t
 const nav = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), params: new URLSearchParams() }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: nav.push, replace: nav.replace }),
-  usePathname: () => "/",
+  usePathname: () => "/search",
   useSearchParams: () => nav.params,
 }));
 // Leaflet needs a real browser; the map has its own tests of what it is given.
@@ -40,7 +40,7 @@ describe("SearchPage without a query", () => {
     expect(screen.getByText("Real-time shelf updates")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Stock you can understand." })).toBeTruthy();
     await userEvent.click(screen.getAllByRole("button", { name: "Paracetamol" })[0]!);
-    expect(nav.push).toHaveBeenCalledWith("/?q=Paracetamol", { scroll: false });
+    expect(nav.push).toHaveBeenCalledWith("/search?q=Paracetamol", { scroll: false });
     expect(api.calls).toEqual([]);
   });
 
@@ -62,14 +62,14 @@ describe("SearchPage without a query", () => {
     await userEvent.keyboard("{ArrowDown}");
     expect(option.getAttribute("aria-selected")).toBe("true");
     await userEvent.keyboard("{Enter}");
-    expect(nav.push).toHaveBeenCalledWith("/?q=Crocin+500mg", { scroll: false });
+    expect(nav.push).toHaveBeenCalledWith("/search?q=Crocin+500mg", { scroll: false });
   });
 
   it("searches from the common essentials browse cards", async () => {
     mockApi({});
     renderWithProviders(<SearchPage />);
     await userEvent.click(screen.getByRole("button", { name: "Dolo 650" }));
-    expect(nav.push).toHaveBeenCalledWith("/?q=Dolo+650", { scroll: false });
+    expect(nav.push).toHaveBeenCalledWith("/search?q=Dolo+650", { scroll: false });
   });
 });
 
@@ -122,7 +122,7 @@ describe("SearchPage with results", () => {
     const box = screen.getByRole("combobox", { name: "Medicine name" });
     await userEvent.clear(box);
     await userEvent.type(box, "Dolo{Enter}");
-    expect(nav.push).toHaveBeenCalledWith("/?q=Dolo", { scroll: false });
+    expect(nav.push).toHaveBeenCalledWith("/search?q=Dolo", { scroll: false });
   });
 
   it("warns that figures may be out of date when live stock is down", async () => {
@@ -235,9 +235,9 @@ describe("SearchPage filters", () => {
     expect(Object.fromEntries(filtered.search)).toMatchObject({ q: "Crocin", inStock: "true", maxDistanceKm: "5", maxPrice: "50", sort: "distance" });
 
     await userEvent.selectOptions(screen.getByLabelText("Sort by"), "price");
-    expect(nav.push).toHaveBeenLastCalledWith("/?q=Crocin&stock=1&dist=5&price=50&sort=price", { scroll: false });
+    expect(nav.push).toHaveBeenLastCalledWith("/search?q=Crocin&stock=1&dist=5&price=50&sort=price", { scroll: false });
     await userEvent.click(screen.getByRole("button", { name: /clear filters \(3\)/i }));
-    expect(nav.push).toHaveBeenLastCalledWith("/?q=Crocin&sort=distance", { scroll: false });
+    expect(nav.push).toHaveBeenLastCalledWith("/search?q=Crocin&sort=distance", { scroll: false });
   });
 
   it("explains an empty result caused by filters, and clears them", async () => {
@@ -246,7 +246,7 @@ describe("SearchPage filters", () => {
     renderWithProviders(<SearchPage />);
     expect(await screen.findByText("No pharmacies match your filters")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(nav.push).toHaveBeenLastCalledWith("/?q=Crocin", { scroll: false });
+    expect(nav.push).toHaveBeenLastCalledWith("/search?q=Crocin", { scroll: false });
   });
 
   it("says plainly when nothing matches the name", async () => {

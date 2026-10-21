@@ -16,6 +16,7 @@
     "test": "vitest run",
     "portal:dev": "npm run dev -w @medlink/pharmacy-portal",
     "portal:seed-users": "npm run seed-users -w @medlink/pharmacy-portal",
+    "portal:users": "npm run users -w @medlink/pharmacy-portal --",
     "web:dev": "npm run dev -w @medlink/web",
     "api:dev": "npm run dev -w @medlink/search-service",
     "pharmacies:setup": "npm run pharmacies:setup -w @medlink/db",

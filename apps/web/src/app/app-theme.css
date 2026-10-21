@@ -1,0 +1,181 @@
+/*
+ * The application theme: the approved V1 landing page's identity (warm paper, forest green, grotesk headings, mono
+ * labels, hairline ink rules, almost square corners) applied to the functional pages.
+ *
+ * Everything here is scoped to `.app-theme`, the wrapper AppShell renders around the app's own pages. The homepage (/)
+ * and the landing previews (/landing/*) take AppShell's bare branch, so none of this reaches them, and V1-V5 keep their
+ * own CSS Modules.
+ *
+ * It works by re-pointing the semantic tokens that every component already uses (bg-surface, text-muted, border-line,
+ * bg-brand, ...) and Tailwind's radius scale, so pages are restyled from one place and need no per-page colours.
+ * The values mirror .page in components/landing/v1/v1.module.css.
+ */
+
+:root {
+  --app-paper: #f0ede0;
+  --app-paper-dark: #121612;
+  /* the same faint printed-paper grain V1 uses, generated here (not an image file) */
+  --paper-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .1  0 0 0 0 .11  0 0 0 0 .09  0 0 0 .09 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+}
+
+/* Behind the page too (overscroll, short pages), but only while an app page is showing. */
+html:has(.app-theme) { background: var(--app-paper); }
+html.dark:has(.app-theme) { background: var(--app-paper-dark); }
+
+.app-theme {
+  /* surfaces and ink */
+  --canvas: #f0ede0;
+  --surface: #f8f6ee;
+  --surface-2: #e5ede2;
+  --line: #cdc9b9;
+  --control-border: #8f8c7c;
+  --control-hover: #ebe8da;
+  --control-hover-border: #55584b;
+  --control-shadow: none;
+  --ink: #1a1c17;
+  --muted: #55584b;
+  --placeholder: #6b6e60;
+
+  /* forest green for action and emphasis; sage and pale green for quiet surfaces */
+  --brand: #285c45;
+  --brand-strong: #1e4636;
+  --brand-soft: #e5ede2;
+  --brand-ink: #1e4636;
+  --focus: #285c45;
+  --on-brand: #ffffff;
+  --info: #285c45;
+  --info-soft: #e5ede2;
+  --action-soft: #eef3ea;
+  --action-border: #a8bca3;
+
+  /* Status keeps its meaning (text and icon always carry it too); only the tones are warmed to sit on paper. */
+  --ok: #256b41;
+  --ok-soft: #e1eedd;
+  --ok-border: #a3cba9;
+  --warn: #7d430b;
+  --warn-soft: #f6ecd5;
+  --warn-border: #d8b46c;
+  --warn-icon: #a8620f;
+  --bad: #9a2a2a;
+  --bad-soft: #f6e4df;
+  --bad-border: #dba9a1;
+  --live: #2f9a63;
+  --live-glow: rgba(47, 154, 99, 0.22);
+
+  --shadow-card: 0 1px 0 rgb(26 28 23 / 0.06);
+  --shadow-pop: 0 10px 30px rgb(26 28 23 / 0.16);
+
+  /* Almost square: V1 has hairline rules and no soft cards. `rounded-full` (pills, dots) is not part of this scale. */
+  --radius-xs: 0;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
+  --radius-2xl: 4px;
+  --radius-3xl: 6px;
+
+  /* V1's type, loaded in the root layout (next/font): a grotesk for text and headings, a mono for labels. */
+  --font-editorial: var(--app-display), "Helvetica Neue", Arial, sans-serif;
+  --app-mono-stack: var(--app-mono), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  position: relative;
+  min-height: 100vh;
+  background-color: var(--canvas);
+  background-image: var(--paper-grain);
+  color: var(--ink);
+  font-family: var(--app-display), "Helvetica Neue", Arial, ui-sans-serif, system-ui, sans-serif;
+  color-scheme: light;
+}
+
+.dark .app-theme {
+  /* V1 has no dark variant, so this is its palette moved to a forest-charcoal ground, with the same roles. */
+  --canvas: #121612;
+  --surface: #1a201b;
+  --surface-2: #232c25;
+  --line: #38423a;
+  --control-border: #66746a;
+  --control-hover: #232c25;
+  --control-hover-border: #7b897d;
+  --ink: #ece9dc;
+  --muted: #aab3a6;
+  --placeholder: #8a948a;
+
+  --brand: #86bd9a;
+  --brand-strong: #a3d2b4;
+  --brand-soft: #1f3126;
+  --brand-ink: #c2e4cd;
+  --focus: #98cdab;
+  --on-brand: #0f1a13;
+  --info: #86bd9a;
+  --info-soft: #1f3126;
+  --action-soft: #1f3126;
+  --action-border: #3b5a47;
+
+  --ok: #7fd69b;
+  --ok-soft: #14301f;
+  --ok-border: #2b5a3b;
+  --warn: #f0bf62;
+  --warn-soft: #2d2210;
+  --warn-border: #5f4417;
+  --warn-icon: #f0bf62;
+  --bad: #f19a95;
+  --bad-soft: #331a18;
+  --bad-border: #63302c;
+
+  --shadow-card: 0 1px 0 rgb(0 0 0 / 0.35);
+  --shadow-pop: 0 10px 36px rgb(0 0 0 / 0.6);
+  background-image: none;
+  color-scheme: dark;
+}
+
+/* ---- type ---- */
+
+/* Headings: V1's heavy, tightly set grotesk (the class was a serif before). Line height stays with each heading. */
+.app-theme .editorial-title {
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+/* Small caps labels and kickers are set in the mono, as on V1. */
+.app-theme .uppercase,
+.app-theme .ui-mono {
+  font-family: var(--app-mono-stack);
+}
+
+/* Hero.tsx sets its group titles with the font-editorial utility, which is a literal serif; follow the theme instead. */
+.app-theme .font-editorial {
+  font-family: var(--font-editorial);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.app-theme .section-kicker {
+  font-family: var(--app-mono-stack);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+/* ---- the shell ---- */
+
+.app-theme .app-theme-header {
+  border-bottom: 1px solid var(--ink);
+  background: color-mix(in srgb, var(--canvas) 94%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.app-theme .app-theme-footer {
+  border-top: 1px solid var(--ink);
+}
+
+/* V1's printed registration mark in the corner of a page, kept faint so dense screens stay calm. */
+.app-theme .app-theme-main::before {
+  content: "+";
+  position: absolute;
+  left: 0.25rem;
+  top: 0.2rem;
+  font-family: var(--app-mono-stack);
+  font-size: 0.85rem;
+  line-height: 1;
+  color: var(--brand);
+  pointer-events: none;
+}

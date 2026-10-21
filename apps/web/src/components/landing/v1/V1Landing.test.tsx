@@ -28,12 +28,18 @@ afterEach(() => {
 const after = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
 describe("V1 landing: hero and navigation", () => {
-  it("states the proposition, keeps the image slot's size, and shows no review labels", () => {
+  it("states the proposition, shows the hero artwork at the slot's size, and shows no review labels", () => {
     const { container } = renderWithProviders(<V1Landing />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Find your medicine. Know where to look.");
     const slot = container.querySelector('[data-slot="hero-image"]') as HTMLElement;
     expect(slot.style.aspectRatio).toBe("1600 / 2000");
-    expect(slot.textContent).toMatch(/4:5 · 1600 × 2000 px/);
+    expect(slot.getAttribute("role")).toBeNull();
+    expect(slot.textContent).not.toMatch(/Image slot/);
+    const art = slot.querySelector("img") as HTMLImageElement;
+    expect(art.getAttribute("src")).toBe("/images/landing/v1-hero.webp");
+    expect(art.getAttribute("alt")).toMatch(/pharmacies/);
+    expect(art.getAttribute("width")).toBe("1600");
+    expect(art.getAttribute("height")).toBe("2000");
     expect(container.textContent).not.toMatch(/Direction 0?1|Sheet 01/);
   });
 
@@ -42,10 +48,10 @@ describe("V1 landing: hero and navigation", () => {
     const boxes = screen.getAllByRole("combobox");
     expect(boxes).toHaveLength(2);
     await userEvent.type(boxes[0]!, "Crocin 500mg{Enter}");
-    expect(nav.push).toHaveBeenLastCalledWith("/?q=Crocin+500mg");
+    expect(nav.push).toHaveBeenLastCalledWith("/search?q=Crocin+500mg");
     await userEvent.type(boxes[1]!, "Augmentin");
     await userEvent.click(screen.getAllByRole("button", { name: "Find a Medicine" })[1]!);
-    expect(nav.push).toHaveBeenLastCalledWith("/?q=Augmentin");
+    expect(nav.push).toHaveBeenLastCalledWith("/search?q=Augmentin");
   });
 
   it("points Explore How It Works at the how-it-works section and the portal links at /portal", () => {

@@ -9,8 +9,8 @@ import { buildSearchHref, validateQuery } from "./search-query";
 /**
  * The landing pages' search box. It carries behaviour and semantics only: each direction styles it through the
  * `data-ls` hooks (form, label, field, input, button, list, option, problem, try, try-link), so five different
- * designs share one search. Submitting goes to the existing search page (`/?q=...`); with JavaScript off the form
- * still works as a plain GET to `/`.
+ * designs share one search. Submitting goes to the existing search page (`/search?q=...`); with JavaScript off the form
+ * still works as a plain GET to `/search`.
  */
 export function LandingSearch({
   cta = PRIMARY_CTA,
@@ -70,7 +70,7 @@ export function LandingSearch({
 
   return (
     <div data-ls="root">
-      <form action="/" method="get" role="search" noValidate onSubmit={submit} data-ls="form">
+      <form action="/search" method="get" role="search" noValidate onSubmit={submit} data-ls="form">
         <label htmlFor={`${id}-q`} data-ls="label" data-visible={visibleLabel ? "true" : undefined} className={visibleLabel ? undefined : "sr-only"}>
           {label}
         </label>

@@ -69,7 +69,7 @@ describe("NotificationsPage with an email", () => {
     mockApi({ "GET /api/notifications": () => ({ body: { data: [] } }), "GET /api/restock-subscriptions": () => ({ body: { data: [] } }) });
     renderWithProviders(<NotificationsPage />);
     expect(await screen.findByText("No notifications yet")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /search for a medicine/i }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("link", { name: /search for a medicine/i }).getAttribute("href")).toBe("/search");
   });
 
   it("shows a retry action when notifications cannot be refreshed", async () => {

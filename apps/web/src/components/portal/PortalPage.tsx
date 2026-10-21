@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import { listPharmacies } from "../../lib/api";
 import { formatAge, formatPrice, pluralise } from "../../lib/format";
 import {
   addMedicine,
@@ -11,6 +12,7 @@ import {
   removeMedicine,
   signIn,
   signOut,
+  signUp,
   updateStock,
   type PortalSession,
   type PortalStockItem,
@@ -32,12 +34,13 @@ const money = (text: string): number | null => {
 
 export function PortalPage() {
   const session = useAsync((signal) => getSession({ signal }), []);
+  const [requesting, setRequesting] = useState(false);
   const signedOut = session.status === "error" && session.error instanceof PortalError && session.error.kind === "unauthenticated";
 
   if (session.status === "idle" || (session.status === "loading" && !session.data)) {
     return <><h1 className="sr-only">Pharmacy portal</h1><p role="status" className="sr-only">Loading pharmacy portal</p><Skeleton className="mx-auto h-64 max-w-md" /></>;
   }
-  if (signedOut) return <SignIn onSignedIn={session.reload} />;
+  if (signedOut) return requesting ? <RequestAccess onBack={() => setRequesting(false)} /> : <SignIn onSignedIn={session.reload} onRequestAccess={() => setRequesting(true)} />;
   if (session.status === "error" && !session.data) {
     return (
       <><h1 className="sr-only">Pharmacy portal</h1><Alert tone="bad" title="We couldn't open the portal" action={<Button size="sm" onClick={session.reload}>Try again</Button>}>
@@ -48,7 +51,7 @@ export function PortalPage() {
   return <StockManager session={session.data!} onSignedOut={session.reload} />;
 }
 
-function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
+function SignIn({ onSignedIn, onRequestAccess }: { onSignedIn: () => void; onRequestAccess: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -84,6 +87,83 @@ function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
         {error && <Alert id="portal-signin-error" tone="bad">{error}</Alert>}
         <Button type="submit" variant="primary" size="lg" loading={busy} className="w-full">Sign in</Button>
       </form>
+      <p className="mt-5 text-sm text-muted">
+        New to the portal?{" "}
+        <button type="button" onClick={onRequestAccess} className="font-medium text-brand underline underline-offset-4">Request access for your pharmacy</button>
+      </p>
+    </Card>
+  );
+}
+
+/** A sign-up request: the account is created pending and works only after MedLink approves it. */
+function RequestAccess({ onBack }: { onBack: () => void }) {
+  const pharmacies = useAsync((signal) => listPharmacies({ signal }), []);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [pharmacyCode, setPharmacyCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (password.length < 10) return setError("Password must be at least 10 characters.");
+    if (!pharmacyCode) return setError("Choose your pharmacy.");
+    setBusy(true);
+    setError(null);
+    try {
+      await signUp({ email: email.trim(), password, pharmacyCode });
+      setSent(true);
+    } catch (err) {
+      setError(message(err));
+      setBusy(false);
+    }
+  }
+
+  if (sent) {
+    return (
+      <Card className="portal-signin mx-auto max-w-md p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Pharmacy workspace</p>
+        <h1 className="editorial-title mt-2 text-3xl leading-tight">Request received</h1>
+        <p role="status" className="mt-2 text-sm text-muted">
+          Your request is waiting for approval. You can sign in with this email and password once MedLink has approved it. Until then you can't change any stock.
+        </p>
+        <Button variant="primary" size="lg" onClick={onBack} className="mt-5 w-full">Back to sign in</Button>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="portal-signin mx-auto max-w-md p-6">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Pharmacy workspace</p>
+      <h1 className="editorial-title mt-2 text-3xl leading-tight">Request access</h1>
+      <p className="mt-1 text-sm text-muted">For staff of a participating pharmacy. MedLink approves each request before the account can be used.</p>
+      <form onSubmit={submit} className="mt-5 space-y-4">
+        <div>
+          <label htmlFor="signup-pharmacy" className="mb-1 block text-sm font-medium">Your pharmacy</label>
+          <Select id="signup-pharmacy" required value={pharmacyCode} onChange={(e) => setPharmacyCode(e.target.value)} disabled={pharmacies.status === "loading" && !pharmacies.data}>
+            <option value="">{pharmacies.status === "error" ? "Couldn't load pharmacies" : "Choose a pharmacy"}</option>
+            {(pharmacies.data ?? []).map((p) => (
+              <option key={p.code} value={p.code}>{p.name}</option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <label htmlFor="signup-email" className="mb-1 block text-sm font-medium">Work email</label>
+          <Input id="signup-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="signup-password" className="mb-1 block text-sm font-medium">Choose a password</label>
+          <Input id="signup-password" type="password" autoComplete="new-password" required minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={error ? "signup-hint signup-error" : "signup-hint"} />
+          <p id="signup-hint" className="mt-1 text-xs text-muted">At least 10 characters.</p>
+        </div>
+        {error && <Alert id="signup-error" tone="bad">{error}</Alert>}
+        <Button type="submit" variant="primary" size="lg" loading={busy} className="w-full">Request access</Button>
+      </form>
+      <p className="mt-5 text-sm text-muted">
+        Already approved?{" "}
+        <button type="button" onClick={onBack} className="font-medium text-brand underline underline-offset-4">Sign in</button>
+      </p>
     </Card>
   );
 }

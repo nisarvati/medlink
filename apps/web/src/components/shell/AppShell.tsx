@@ -21,12 +21,12 @@ function ThemeToggle() {
 
 function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-surface">
+    <header className="app-theme-header sticky top-0 z-40">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
         <Link href="/" className="flex items-center gap-2.5 rounded-xl pr-1" aria-label="MedLink home">
           <LogoMark />
-          <span className="text-lg font-bold tracking-tight">MedLink</span>
-          <span aria-hidden="true" className="ml-1 hidden border-l border-line pl-3 text-xs font-medium tracking-wide text-muted lg:inline">Medicine, nearby</span>
+          <span className="text-xl font-bold tracking-[-0.04em]">MedLink<sup aria-hidden="true" className="ml-0.5 align-super text-[0.5em] font-normal">®</sup></span>
+          <span aria-hidden="true" className="ml-1 hidden border-l border-line pl-3 text-[0.68rem] font-medium uppercase tracking-[0.1em] text-muted lg:inline">Medicine, nearby</span>
         </Link>
         <div className="ml-2 hidden md:block">
           <TopNav />
@@ -41,9 +41,9 @@ function Header() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  // The landing-page explorations (/landing/...) own their whole page, so they get the providers but none of the chrome.
+  // The homepage (/) and the landing-page previews (/landing/...) own their whole page, so they get the providers but none of the chrome.
   const pathname = usePathname();
-  const bare = pathname === "/landing" || pathname.startsWith("/landing/");
+  const bare = pathname === "/" || pathname === "/landing" || pathname.startsWith("/landing/");
   if (bare) {
     return (
       <ThemeProvider>
@@ -57,18 +57,20 @@ export function AppShell({ children }: { children: ReactNode }) {
     <ThemeProvider>
       <LocationProvider>
         <AccountProvider>
+          <div className="app-theme">
           <a href="#main" className="sr-only z-50 rounded-lg bg-brand px-4 py-2 font-semibold text-on-brand focus:not-sr-only focus:fixed focus:left-4 focus:top-3">
             Skip to content
           </a>
           <Header />
-          <main id="main" className="mx-auto min-h-[calc(100vh-4rem)] max-w-6xl px-4 pb-28 pt-6 md:pb-12 md:pt-8">
+          <main id="main" className="app-theme-main relative mx-auto min-h-[calc(100vh-4rem)] max-w-6xl px-4 pb-28 pt-6 md:pb-12 md:pt-8">
             {children}
           </main>
-          <footer className="mx-auto hidden max-w-6xl border-t border-line/80 px-4 py-6 text-xs leading-relaxed text-muted md:block">
+          <footer className="app-theme-footer mx-auto hidden max-w-6xl px-4 py-6 text-xs leading-relaxed text-muted md:block">
             Stock comes from each pharmacy&apos;s own system and can lag by a few seconds. Call ahead to confirm. MedLink does not give medical advice.{" "}
             <Link href="/portal" className="underline hover:text-ink">Pharmacy staff sign in</Link>
           </footer>
           <BottomNav />
+          </div>
         </AccountProvider>
       </LocationProvider>
     </ThemeProvider>

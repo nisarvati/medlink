@@ -24,11 +24,14 @@ outbox and is caught up when they start.
 ## Run it
 
 ```
-npm run db:migrate                  # adds the pharmacy_users table
+npm run db:migrate                  # adds the pharmacy_users table, and its sign-up status (migration 005)
 npm run portal:seed-users           # p001@pharmacy.test ... p005@pharmacy.test, password medlink-dev
 npm run portal:dev                  # the portal API on :4200
 npm run web:dev                     # the web app; the portal is at /portal ("Pharmacy staff sign in" in the footer)
 ```
+
+New staff request access on the same page ("Request access for your pharmacy"); an administrator approves them with
+`npm run portal:users` (see below).
 
 (plus `npm run infra:up`, `pharmacies:setup`, `connector:start`, `sync:start` as for the rest of the pipeline.)
 
@@ -41,7 +44,7 @@ npm run web:dev                     # the web app; the portal is at /portal ("Ph
 | List a medicine | `POST /portal/stock` `{ medicineCode, quantity, price }` | `MEDICINE_ADDED` |
 | Stop listing a medicine | `DELETE /portal/stock/:code` | `MEDICINE_REMOVED` |
 
-Also `POST /portal/login`, `POST /portal/logout`, `GET /portal/me`, `GET /portal/stock` (read from the pharmacy's own
+Also `POST /portal/signup`, `POST /portal/login`, `POST /portal/logout`, `GET /portal/me`, `GET /portal/stock` (read from the pharmacy's own
 database) and `GET /portal/catalogue` (medicines the pharmacy does not list yet).
 
 ## Sign-in and who can change what
@@ -53,7 +56,34 @@ database) and `GET /portal/catalogue` (medicines the pharmacy does not list yet)
   P001 login cannot change P002's stock whatever it sends.
 - Cross-origin requests are allowed only from `CORS_ORIGINS`, with credentials.
 
-Not built, on purpose, for development: password reset, roles inside a pharmacy, sign-in rate limiting, an audit
+## Signing up and approval
+
+Staff ask for access to **one existing pharmacy** (P001...). The request is not an account you can use: it is stored in
+`pharmacy_users` with `status = 'pending'`, and only `active` accounts can sign in, change stock, or keep a session
+(`requireSession` checks the status on every request, so rejecting or removing someone ends their session at once).
+
+- `POST /portal/signup` `{ email, password (10+ characters), pharmacyCode }` answers `202 { status: "pending" }`. The
+  pharmacy must exist; the form cannot set a status or pick anything but the pharmacy code. The answer is the same when
+  the email is already registered (and that account is left unchanged), so the form does not reveal which emails
+  have accounts.
+- Signing in with a correct password while pending answers `403 ACCOUNT_PENDING` (or `ACCOUNT_NOT_APPROVED` if
+  rejected); a wrong password or unknown email still gets the ordinary `401`.
+- At most 20 requests may wait per pharmacy (`429` after that), so the unauthenticated form cannot fill the table.
+- Approving is an administrator action with no HTTP endpoint on purpose:
+
+```
+npm run portal:users -- list            # pending requests (add "all" for every account)
+npm run portal:users -- approve <email>
+npm run portal:users -- reject <email>
+```
+
+  Only a pending request can be decided; an active account is never changed by it. Migration 005 defaults existing
+  accounts (including the seeded ones) to `active`.
+- A rejected email cannot request again; remove its row from `pharmacy_users` first. Approval is by email, so check
+  the person really works at that pharmacy before approving.
+
+Not built, on purpose, for development: email verification of the address, a notification to administrators when a
+request arrives, an admin screen, password reset, roles inside a pharmacy, sign-in rate limiting, an audit
 trail of who changed what. Add them before real use. Set `PORTAL_SESSION_SECRET` (required when
 `NODE_ENV=production`) and serve it over HTTPS (the cookie is then also `Secure`).
 

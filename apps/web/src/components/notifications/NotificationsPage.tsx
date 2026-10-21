@@ -146,7 +146,7 @@ function Inbox({ email }: { email: string }) {
           {unreadCount > 0 && <div className="flex justify-end"><Button size="sm" variant="secondary" onClick={markAllRead}>Mark all as read ({unreadCount})</Button></div>}
           {notifications === null && <><p role="status" className="sr-only">Loading notifications</p><Skeleton className="h-24" /></>}
           {notifications?.length === 0 && (
-            <EmptyState icon={<BellIcon />} title="No notifications yet" action={<LinkButton href="/" variant="primary"><SearchIcon size={16} /> Search for a medicine</LinkButton>}>
+            <EmptyState icon={<BellIcon />} title="No notifications yet" action={<LinkButton href="/search" variant="primary"><SearchIcon size={16} /> Search for a medicine</LinkButton>}>
               When a pharmacy restocks a medicine you&apos;re waiting for, it appears here.
             </EmptyState>
           )}
@@ -184,7 +184,7 @@ function Inbox({ email }: { email: string }) {
           {!subs.data && subs.status !== "error" && <><p role="status" className="sr-only">Loading waiting list</p><Skeleton className="h-20" /></>}
 
           {subs.data && waiting.length === 0 && (
-            <EmptyState icon={<BellIcon />} title="You're not waiting for anything" action={<LinkButton href="/" variant="primary">Search for a medicine</LinkButton>}>
+            <EmptyState icon={<BellIcon />} title="You're not waiting for anything" action={<LinkButton href="/search" variant="primary">Search for a medicine</LinkButton>}>
               When a medicine is out of stock, choose “Notify me” and it will be listed here.
             </EmptyState>
           )}

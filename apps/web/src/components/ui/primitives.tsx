@@ -8,7 +8,7 @@ type Tone = "neutral" | "brand" | "ok" | "warn" | "bad" | "info";
 
 const TONE: Record<Tone, string> = {
   neutral: "border border-control-border bg-surface text-muted shadow-control",
-  brand: "border border-brand bg-brand text-on-brand shadow-sm",
+  brand: "border border-brand bg-brand text-on-brand",
   ok: "border border-ok-border bg-ok-soft text-ok",
   warn: "border border-warn-border bg-warn-soft text-warn",
   bad: "border border-bad-border bg-bad-soft text-bad",
@@ -21,20 +21,20 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "directions";
 type Size = "sm" | "md" | "lg";
 
 const VARIANT: Record<Variant, string> = {
-  primary: "bg-brand text-on-brand hover:bg-brand-strong hover:text-on-brand shadow-sm",
+  primary: "bg-brand text-on-brand hover:bg-brand-strong hover:text-on-brand",
   secondary: "border border-control-border bg-surface text-ink shadow-control hover:border-control-hover-border hover:bg-control-hover",
   ghost: "text-ink hover:bg-control-hover",
   danger: "border border-line bg-surface text-bad hover:bg-bad-soft",
   directions: "border border-action-border bg-action-soft text-brand hover:border-brand hover:bg-brand hover:text-on-brand",
 };
 const SIZE: Record<Size, string> = {
-  sm: "min-h-11 gap-1.5 rounded-lg px-3 text-sm md:h-9 md:min-h-0",
-  md: "h-10 gap-2 rounded-xl px-4 text-sm",
-  lg: "h-12 gap-2 rounded-xl px-6 text-base",
+  sm: "min-h-11 gap-1.5 rounded-lg px-3 text-[0.72rem] md:h-9 md:min-h-0",
+  md: "h-10 gap-2 rounded-xl px-4 text-[0.76rem]",
+  lg: "h-12 gap-2 rounded-xl px-6 text-[0.82rem]",
 };
 const buttonClass = (variant: Variant, size: Size, extra?: string) =>
   cx(
-    "inline-flex shrink-0 items-center justify-center whitespace-nowrap font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55",
+    "ui-mono inline-flex shrink-0 items-center justify-center whitespace-nowrap font-medium uppercase tracking-[0.05em] transition-colors disabled:cursor-not-allowed disabled:opacity-55",
     VARIANT[variant],
     SIZE[size],
     extra,
@@ -82,7 +82,7 @@ export function LinkButton({
 
 export function Badge({ tone = "neutral", className, children, ...rest }: HTMLAttributes<HTMLSpanElement> & { tone?: Tone }) {
   return (
-    <span {...rest} className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold", TONE[tone], className)}>
+    <span {...rest} className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-sm px-2.5 py-1 text-xs font-semibold", TONE[tone], className)}>
       {children}
     </span>
   );
@@ -137,7 +137,7 @@ export function EmptyState({ icon, title, children, action, level = 3 }: { icon?
 
 /* -------------------------------------------------------------------- Forms */
 
-const FIELD = "w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink placeholder:text-placeholder transition-colors hover:border-muted/60 focus:border-focus";
+const FIELD = "w-full rounded-xl border border-control-border bg-surface px-3.5 text-sm text-ink placeholder:text-placeholder transition-colors hover:border-muted/60 focus:border-focus";
 
 export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={cx(FIELD, "h-11", className)} />;
@@ -159,7 +159,7 @@ export function Chip({ pressed, className, children, ...rest }: ButtonHTMLAttrib
       {...rest}
       aria-pressed={pressed}
       className={cx(
-        "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-sm font-medium transition-colors md:h-9 md:min-h-0",
+        "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-sm border px-3.5 text-sm font-medium transition-colors md:h-9 md:min-h-0",
         pressed ? "border-brand bg-brand-soft text-brand-ink" : "border-control-border bg-surface text-ink shadow-control hover:border-control-hover-border hover:bg-control-hover",
         className,
       )}

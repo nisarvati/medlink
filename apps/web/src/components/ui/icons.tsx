@@ -43,7 +43,7 @@ export const PhoneIcon = (p: IconProps) => base({ ...p, children: <path d="M22 1
 export function LogoMark({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <rect width="32" height="32" rx="9" fill="var(--brand)" />
+      <rect width="32" height="32" rx="4" fill="var(--brand)" />
       <path d="M16 6.5a7.5 7.5 0 0 0-7.5 7.5c0 5.4 7.5 11.5 7.5 11.5s7.5-6.1 7.5-11.5A7.5 7.5 0 0 0 16 6.5Z" fill="var(--on-brand)" opacity=".18" />
       <rect x="11" y="9.5" width="10" height="13" rx="5" transform="rotate(35 16 16)" fill="none" stroke="var(--on-brand)" strokeWidth="2" />
       <path d="m12.6 12.4 6.8 7.2" stroke="var(--on-brand)" strokeWidth="2" strokeLinecap="round" />

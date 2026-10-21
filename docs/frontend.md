@@ -68,15 +68,52 @@ same live overlay; a summary of in stock / low / out).
 * **No sign-in yet**, so the email you used to ask for an alert is how the device recognises you (see
   `docs/restock-notifications.md`). Notifications are simulated: they appear in the app instead of being emailed.
 
-## Landing page directions (previews)
+## Homepage and routes
 
-Five independent explorations of a marketing landing page, for review. **They do not replace the homepage:** `/` is
-unchanged, and nothing links to these routes from the app.
+| Route | What it is |
+|---|---|
+| `/` | The homepage: the V1 landing page (`components/landing/v1/V1Landing`), indexable, canonical link to `/`. It has no app chrome and carries its own header, footer and search. |
+| `/search` | The search app (`SearchPage`). Its URL is its state: `/search?q=Crocin&stock=1&sort=price`. |
+| `/pharmacies`, `/notifications`, `/portal` | Unchanged. |
+| `/landing` | Redirects to `/` (the old comparison index is gone). |
+| `/?q=...` | Redirects to `/search?q=...`, so searches that were shared or bookmarked before the move still work. Both redirects are in `next.config.ts` and are temporary (307) while the homepage settles. |
+
+The search app used to live at `/`. It moved so that `/` can be the landing page; `SearchPage` builds its URLs from the
+current path, so nothing inside it changed. Links that mean "search" (the Search tab, the empty states, the 404 page and
+the landing pages' search) point at `/search`. The logo links to `/`. Set `NEXT_PUBLIC_SITE_URL` to the public address so
+the canonical link is absolute (it defaults to `http://localhost:3000`).
+
+## Application theme (V1 identity on the functional pages)
+
+The pages that are not landing pages (`/search`, `/pharmacies`, `/pharmacies/[id]`, `/notifications`, `/portal` and the 404)
+share the identity of the approved V1 landing page: warm paper, forest green, a heavy grotesk for headings, a mono for
+labels, hairline ink rules and almost square corners. They stay denser and plainer than the landing page.
+
+* **One file, one scope.** `app/app-theme.css` holds the theme and every rule in it is under `.app-theme` (or
+  `.dark .app-theme`). `AppShell` renders that wrapper for ordinary pages only; `/` and `/landing/*` take its bare
+  branch, so the homepage and V2-V5 cannot be affected. `app/app-theme.test.ts` fails if a rule escapes the scope or
+  `:root` gains anything but `--app-*` / `--paper-grain`, and `AppShell.test.tsx` checks which routes get the wrapper.
+* **Tokens, not per-page colours.** Components already use semantic tokens (`bg-surface`, `text-muted`, `border-line`,
+  `bg-brand`...). The theme re-points those inside the scope (values mirror `.page` in `landing/v1/v1.module.css`) and
+  re-points Tailwind's radius scale, so most pages needed no change. To retune the app, edit that one file.
+* **Type.** `app/layout.tsx` loads V1's two families (Bricolage Grotesque, IBM Plex Mono) as `--app-display` and
+  `--app-mono`, without preload, so the landing previews do not download them. `.editorial-title` (headings) is now the
+  grotesk; `uppercase` labels, buttons and the nav use the mono (`.ui-mono`).
+* **Status keeps its meaning.** In stock, low stock and out of stock (and Live vs Last known) are still written out and
+  carry an icon as well as a colour; only the tones were warmed to sit on paper. Contrast of every token pair was checked
+  in both themes (text 4.5:1, borders and focus ring 3:1).
+* **Dark mode** is kept (the header toggle): V1's palette on a forest-charcoal ground. V1 itself has no dark variant.
+* **Shell.** Header and tab bar have an ink rule, nav labels are mono with the current page underlined, and the footer
+  has an ink rule. The `/search` start page (no query yet) is a flat, ruled version of the old hero.
+
+## Landing page directions
+
+V1 is now the homepage, and also stays at `/landing/v1` (noindex, the same component). V2-V5 are previews for review: still
+at their own routes, noindex, and nothing links to them from the app.
 
 | Route | Direction |
 |---|---|
-| `/landing` | Comparison index of the five. |
-| `/landing/v1` | Print-tech paper (recommended): ivory sheet, oversized grotesk, mono marginalia, forest-green accent, with one technical plate ("Under the surface") on the same paper. |
+| `/landing/v1` | Print-tech paper (now the homepage at `/`): ivory sheet, oversized grotesk, mono marginalia, forest-green accent, with one technical plate ("Under the surface") on the same paper. |
 | `/landing/v2` | Clinical precision: Swiss spec-sheet grid, graphite, mineral green, amber for action. |
 | `/landing/v3` | Urban pharmacy atlas: a typeset map publication, olive and burnt orange. |
 | `/landing/v4` | Signal and stream: graphite and off-white, moss signal states, amber; dark only. |
@@ -86,19 +123,20 @@ unchanged, and nothing links to these routes from the app.
   no medical advice, stock and prices change, not every pharmacy is connected) lives once in
   `components/landing/shared/content.ts`. Each direction owns its layout, type (`next/font`, loaded only on its own
   route), palette and CSS Module under `components/landing/vN/`. They deliberately depart from the app's identity.
-* **No app chrome.** `AppShell` renders only its providers (theme, location, account) for `/landing` and
-  `/landing/*`, so a direction draws its own header, footer and skip link. Every other route is unchanged.
-* **Search is the existing search.** `shared/LandingSearch` is a plain `GET /` form (`name="q"`) that also navigates
-  with the router, so it works without JavaScript. It sends the visitor to `/?q=...`, the search page's own URL state
+* **No app chrome.** `AppShell` renders only its providers (theme, location, account) for `/`,
+  `/landing` and `/landing/*`, so a page draws its own header, footer and skip link. Every other route has the app chrome.
+* **Search is the existing search.** `shared/LandingSearch` is a plain `GET /search` form (`name="q"`) that also navigates
+  with the router, so it works without JavaScript. It sends the visitor to `/search?q=...`, the search page's own URL state
   (built with `toSearchParams`). It carries behaviour only; each direction styles it through `data-ls` attributes.
 * **Availability is real or labelled.** `shared/AvailabilitySample` calls `searchMedicines("Paracetamol", ...)` for the
   picked location and shows the returned medicine, strength and form, pharmacy, distance, stock, price and freshness
   (live vs last known, with its age). Loading, empty and error states are shown as such. Invented rows appear only if the
   reviewer picks "Illustrative preview", and every row and the section say they are invented. Pack size is not shown
   because the catalogue does not carry it.
-* **Hero images are placeholders.** `shared/HeroSlot` reserves each direction's image at a fixed aspect ratio (shown on
-  the slot: 4:5, 3:2, 3:4, 16:9, 4:5), so layout does not depend on the art. To use the real image, pass `src` and
-  `alt` to that direction's `<HeroSlot>`; it fills the same box.
+* **Hero images.** `shared/HeroSlot` reserves each direction's image at a fixed aspect ratio (4:5, 3:2, 3:4, 16:9,
+  4:5), so layout does not depend on the art. To use the real image, pass `src` and `alt` to that direction's
+  `<HeroSlot>`; it fills the same box. V1 has its final artwork, `apps/web/public/images/landing/v1-hero.webp`
+  (1600 × 2000, text-free, drawn as vector art and rasterised, with the V1 palette); V2–V5 still show the placeholder.
 * **Links.** Only routes that exist (`/portal`, `/pharmacies`, `/notifications`) and anchors on the page. There are no
   privacy or terms links because those pages do not exist.
 

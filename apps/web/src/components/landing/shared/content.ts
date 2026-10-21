@@ -22,7 +22,7 @@ export const IDS = {
 
 /** Only routes that exist in the app, plus anchors on the landing page itself. */
 export const ROUTES = {
-  app: "/",
+  app: "/search",
   pharmacies: "/pharmacies",
   notifications: "/notifications",
   portal: "/portal",

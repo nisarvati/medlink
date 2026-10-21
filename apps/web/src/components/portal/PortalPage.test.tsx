@@ -55,6 +55,59 @@ describe("PortalPage", () => {
     expect(screen.getByLabelText("Email")).toBeTruthy(); // still on the sign-in form
   });
 
+  it("shows the waiting-for-approval message when a pending account tries to sign in", async () => {
+    mockApi({
+      "GET /portal/me": () => unauthenticated,
+      "POST /portal/login": () => ({ status: 403, body: { error: { code: "ACCOUNT_PENDING", message: "Your request is waiting for approval. You can sign in once MedLink has approved it." } } }),
+    });
+    render(<PortalPage />);
+    await userEvent.type(await screen.findByLabelText("Email"), "new@p001.test");
+    await userEvent.type(screen.getByLabelText("Password"), "a-long-password");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/waiting for approval/);
+  });
+
+  it("requests access for a chosen pharmacy and says it is waiting for approval", async () => {
+    const api = mockApi({
+      "GET /portal/me": () => unauthenticated,
+      "GET /api/pharmacies": () => ({ body: { data: [
+        { id: 1, code: "P001", name: "Pharmacy A - Andheri West", address: "x", latitude: 19, longitude: 72 },
+        { id: 2, code: "P002", name: "Pharmacy B - Bandra", address: "y", latitude: 19, longitude: 72 },
+      ] } }),
+      "POST /portal/signup": () => ({ status: 202, body: { data: { status: "pending" } } }),
+    });
+    render(<PortalPage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Request access for your pharmacy" }));
+    await userEvent.selectOptions(await screen.findByLabelText("Your pharmacy"), "P002");
+    await userEvent.type(screen.getByLabelText("Work email"), "new@p002.test");
+    await userEvent.type(screen.getByLabelText("Choose a password"), "a-long-password");
+    await userEvent.click(screen.getByRole("button", { name: "Request access" }));
+    expect((await screen.findByRole("status")).textContent).toMatch(/waiting for approval/);
+    expect(api.calls.find((c) => c.path === "/portal/signup")?.body).toEqual({ email: "new@p002.test", password: "a-long-password", pharmacyCode: "P002" });
+    await userEvent.click(screen.getByRole("button", { name: "Back to sign in" }));
+    expect(await screen.findByLabelText("Password")).toBeTruthy();
+  });
+
+  it("checks the password length before calling the portal, and shows what the portal refuses", async () => {
+    const api = mockApi({
+      "GET /portal/me": () => unauthenticated,
+      "GET /api/pharmacies": () => ({ body: { data: [{ id: 1, code: "P001", name: "Pharmacy A", address: "x", latitude: 19, longitude: 72 }] } }),
+      "POST /portal/signup": () => ({ status: 429, body: { error: { code: "TOO_MANY_REQUESTS", message: "This pharmacy has too many requests waiting. Please contact MedLink." } } }),
+    });
+    render(<PortalPage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Request access for your pharmacy" }));
+    await userEvent.selectOptions(await screen.findByLabelText("Your pharmacy"), "P001");
+    await userEvent.type(screen.getByLabelText("Work email"), "x@p001.test");
+    // nine characters: refused in the form, so the portal is not called
+    await userEvent.type(screen.getByLabelText("Choose a password"), "short-pwd");
+    await userEvent.click(screen.getByRole("button", { name: "Request access" }));
+    expect(api.count("POST", "/portal/signup")).toBe(0);
+    await userEvent.type(screen.getByLabelText("Choose a password"), "-long");
+    await userEvent.click(screen.getByRole("button", { name: "Request access" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/too many requests/);
+    expect(api.count("POST", "/portal/signup")).toBe(1);
+  });
+
   it("lists the pharmacy's stock and filters it by name", async () => {
     mockApi(signedIn());
     render(<PortalPage />);

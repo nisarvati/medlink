@@ -12,10 +12,10 @@ beforeEach(() => nav.push.mockClear());
 afterEach(cleanup);
 
 describe("LandingSearch", () => {
-  it("is a labelled search form that falls back to a plain GET to / without JavaScript", () => {
+  it("is a labelled search form that falls back to a plain GET to /search without JavaScript", () => {
     render(<LandingSearch />);
     const form = screen.getByRole("search");
-    expect(form.getAttribute("action")).toBe("/");
+    expect(form.getAttribute("action")).toBe("/search");
     expect(form.getAttribute("method")).toBe("get");
     expect(screen.getByLabelText("Medicine name").getAttribute("name")).toBe("q");
   });
@@ -24,13 +24,13 @@ describe("LandingSearch", () => {
     render(<LandingSearch />);
     await userEvent.type(screen.getByRole("combobox"), "Crocin 500mg");
     await userEvent.click(screen.getByRole("button", { name: "Find a Medicine" }));
-    expect(nav.push).toHaveBeenCalledWith("/?q=Crocin+500mg");
+    expect(nav.push).toHaveBeenCalledWith("/search?q=Crocin+500mg");
   });
 
   it("submits with Enter", async () => {
     render(<LandingSearch />);
     await userEvent.type(screen.getByRole("combobox"), "Augmentin{Enter}");
-    expect(nav.push).toHaveBeenCalledWith("/?q=Augmentin");
+    expect(nav.push).toHaveBeenCalledWith("/search?q=Augmentin");
   });
 
   it("does not search an empty box, says why, and clears the message when typing", async () => {
@@ -48,11 +48,11 @@ describe("LandingSearch", () => {
     await userEvent.type(screen.getByRole("combobox"), "para");
     expect(screen.getByRole("listbox").hasAttribute("hidden")).toBe(false);
     await userEvent.keyboard("{ArrowDown}{Enter}");
-    expect(nav.push).toHaveBeenCalledWith("/?q=Paracetamol");
+    expect(nav.push).toHaveBeenCalledWith("/search?q=Paracetamol");
   });
 
   it("lists try-links that are real links into the search page", () => {
     render(<LandingSearch />);
-    expect(screen.getByRole("link", { name: "Paracetamol" }).getAttribute("href")).toBe("/?q=Paracetamol");
+    expect(screen.getByRole("link", { name: "Paracetamol" }).getAttribute("href")).toBe("/search?q=Paracetamol");
   });
 });

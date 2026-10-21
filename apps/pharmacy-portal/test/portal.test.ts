@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createPool, type Db } from "@medlink/db";
 import { freshPharmacyDbs, freshSeededDb } from "@medlink/db/testing";
+import { decide, listUsers } from "../src/admin.js";
 import { createSessionToken, hashPassword, readSessionToken, verifyPassword } from "../src/auth.js";
 import { buildApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
@@ -198,5 +199,95 @@ describe("one pharmacy cannot touch another", () => {
     await admin.query("DELETE FROM pharmacy_users WHERE email = 'gone@pharmacy.test'");
     expect((await call("GET", "/portal/me", cookie)).statusCode).toBe(401);
     expect((await call("PATCH", "/portal/stock/M001", cookie, { quantity: 1 })).statusCode).toBe(401);
+  });
+});
+
+describe("sign-up and approval", () => {
+  const signup = (payload: unknown) => app.inject({ method: "POST", url: "/portal/signup", payload: payload as object });
+  const statusOf = async (email: string) => (await admin.query("SELECT status FROM pharmacy_users WHERE lower(email) = lower($1)", [email])).rows[0]?.status;
+
+  it("creates a pending request that cannot sign in, and says so only to someone who knows the password", async () => {
+    const res = await signup({ email: "New.Staff@Pharmacy.test", password: "a-long-password", pharmacyCode: "p003" });
+    expect(res.statusCode).toBe(202);
+    expect(res.json()).toEqual({ data: { status: "pending" } });
+    expect(res.headers["set-cookie"]).toBeUndefined();
+    expect(await statusOf("new.staff@pharmacy.test")).toBe("pending");
+    expect((await admin.query("SELECT pharmacy_code, password_hash FROM pharmacy_users WHERE lower(email) = 'new.staff@pharmacy.test'")).rows[0]).toMatchObject({ pharmacy_code: "P003" });
+    expect(JSON.stringify(res.json())).not.toContain("scrypt");
+
+    const right = await login("new.staff@pharmacy.test", "a-long-password");
+    expect(right.res.statusCode).toBe(403);
+    expect(right.res.json().error.code).toBe("ACCOUNT_PENDING");
+    expect(right.res.headers["set-cookie"]).toBeUndefined();
+    // A wrong password or an unknown email still gets the same answer as before, so pending status is not leaked.
+    const wrong = await login("new.staff@pharmacy.test", "not-the-password");
+    expect(wrong.res.statusCode).toBe(401);
+    expect(wrong.res.json().error.code).toBe("INVALID_CREDENTIALS");
+  });
+
+  it("lets an approved request sign in, for its own pharmacy only", async () => {
+    await signup({ email: "approve.me@pharmacy.test", password: "a-long-password", pharmacyCode: "P003" });
+    expect((await listUsers(admin)).map((u) => u.email)).toContain("approve.me@pharmacy.test");
+    const approved = await decide(admin, "Approve.Me@pharmacy.test", "approve");
+    expect(approved).toMatchObject({ pharmacyCode: "P003", status: "active" });
+    const { res, cookie } = await login("approve.me@pharmacy.test", "a-long-password");
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.pharmacy.code).toBe("P003");
+    expect((await call("GET", "/portal/me", cookie)).json().data.pharmacy.code).toBe("P003");
+    expect((await listUsers(admin)).map((u) => u.email)).not.toContain("approve.me@pharmacy.test");
+  });
+
+  it("keeps a rejected request out, and ends a session whose account is no longer active", async () => {
+    await signup({ email: "reject.me@pharmacy.test", password: "a-long-password", pharmacyCode: "P002" });
+    await decide(admin, "reject.me@pharmacy.test", "reject");
+    const refused = await login("reject.me@pharmacy.test", "a-long-password");
+    expect(refused.res.statusCode).toBe(403);
+    expect(refused.res.json().error.code).toBe("ACCOUNT_NOT_APPROVED");
+
+    const { cookie } = await login("b@pharmacy.test", "pw-b");
+    expect((await call("GET", "/portal/stock", cookie)).statusCode).toBe(200);
+    await admin.query("UPDATE pharmacy_users SET status = 'rejected' WHERE email = 'b@pharmacy.test'");
+    expect((await call("GET", "/portal/stock", cookie)).statusCode).toBe(401);
+    expect((await call("PATCH", "/portal/stock/M001", cookie, { quantity: 1 })).statusCode).toBe(401);
+    await admin.query("UPDATE pharmacy_users SET status = 'active' WHERE email = 'b@pharmacy.test'");
+    expect((await call("GET", "/portal/stock", cookie)).statusCode).toBe(200);
+  });
+
+  it("answers the same for an email that is already registered, and never changes that account", async () => {
+    const taken = await signup({ email: "A@pharmacy.test", password: "another-long-password", pharmacyCode: "P002" });
+    expect(taken.statusCode).toBe(202);
+    expect(taken.json()).toEqual({ data: { status: "pending" } });
+    const existing = (await admin.query("SELECT pharmacy_code, status FROM pharmacy_users WHERE email = 'a@pharmacy.test'")).rows;
+    expect(existing).toEqual([{ pharmacy_code: "P001", status: "active" }]);
+    expect((await login("a@pharmacy.test", "pw-a")).res.statusCode).toBe(200);
+    expect((await login("a@pharmacy.test", "another-long-password")).res.statusCode).toBe(401);
+  });
+
+  it("validates the request and does not let the form choose its own status", async () => {
+    const ok = { email: "valid@pharmacy.test", password: "a-long-password", pharmacyCode: "P001" };
+    expect((await signup({ ...ok, password: "short" })).statusCode).toBe(400);
+    expect((await signup({ ...ok, email: "not-an-email" })).statusCode).toBe(400);
+    expect((await signup({ ...ok, pharmacyCode: "../etc" })).statusCode).toBe(400);
+    expect((await signup({ ...ok, status: "active" })).statusCode).toBe(400);
+    expect((await signup({ ...ok, pharmacyCode: "P999" })).statusCode).toBe(404);
+    expect(await statusOf("valid@pharmacy.test")).toBeUndefined();
+  });
+
+  it("caps the open requests for one pharmacy", async () => {
+    for (let i = 0; i < 20; i++) {
+      await admin.query("INSERT INTO pharmacy_users (email, password_hash, pharmacy_code, status) VALUES ($1, 'x', 'P004', 'pending')", [`bulk${i}@pharmacy.test`]);
+    }
+    const res = await signup({ email: "one.more@pharmacy.test", password: "a-long-password", pharmacyCode: "P004" });
+    expect(res.statusCode).toBe(429);
+    expect(await statusOf("one.more@pharmacy.test")).toBeUndefined();
+    expect((await signup({ email: "other.pharmacy@pharmacy.test", password: "a-long-password", pharmacyCode: "P005" })).statusCode).toBe(202);
+  });
+
+  it("only decides requests that are pending, and tells the administrator when there is none", async () => {
+    await expect(decide(admin, "nobody@pharmacy.test", "approve")).rejects.toThrow(/No pending request/);
+    await expect(decide(admin, "a@pharmacy.test", "reject")).rejects.toThrow(/No pending request/); // an active account is not demoted
+    expect(await statusOf("a@pharmacy.test")).toBe("active");
+    expect((await listUsers(admin, "all")).map((u) => u.email)).toContain("a@pharmacy.test");
+    expect(JSON.stringify(await listUsers(admin, "all"))).not.toContain("scrypt");
   });
 });
