@@ -68,6 +68,43 @@ same live overlay; a summary of in stock / low / out).
 * **No sign-in yet**, so the email you used to ask for an alert is how the device recognises you (see
   `docs/restock-notifications.md`). Notifications are simulated: they appear in the app instead of being emailed.
 
+## Landing page directions (previews)
+
+Five independent explorations of a marketing landing page, for review. **They do not replace the homepage:** `/` is
+unchanged, and nothing links to these routes from the app.
+
+| Route | Direction |
+|---|---|
+| `/landing` | Comparison index of the five. |
+| `/landing/v1` | Print-tech paper (recommended): ivory sheet, oversized grotesk, mono marginalia, forest-green accent, with one technical plate ("Under the surface") on the same paper. |
+| `/landing/v2` | Clinical precision: Swiss spec-sheet grid, graphite, mineral green, amber for action. |
+| `/landing/v3` | Urban pharmacy atlas: a typeset map publication, olive and burnt orange. |
+| `/landing/v4` | Signal and stream: graphite and off-white, moss signal states, amber; dark only. |
+| `/landing/v5` | Humanist utility: warm off-white, forest green, terracotta; the person first. |
+
+* **Same facts, different art direction.** Copy that states what MedLink does and does not do (not an online pharmacy,
+  no medical advice, stock and prices change, not every pharmacy is connected) lives once in
+  `components/landing/shared/content.ts`. Each direction owns its layout, type (`next/font`, loaded only on its own
+  route), palette and CSS Module under `components/landing/vN/`. They deliberately depart from the app's identity.
+* **No app chrome.** `AppShell` renders only its providers (theme, location, account) for `/landing` and
+  `/landing/*`, so a direction draws its own header, footer and skip link. Every other route is unchanged.
+* **Search is the existing search.** `shared/LandingSearch` is a plain `GET /` form (`name="q"`) that also navigates
+  with the router, so it works without JavaScript. It sends the visitor to `/?q=...`, the search page's own URL state
+  (built with `toSearchParams`). It carries behaviour only; each direction styles it through `data-ls` attributes.
+* **Availability is real or labelled.** `shared/AvailabilitySample` calls `searchMedicines("Paracetamol", ...)` for the
+  picked location and shows the returned medicine, strength and form, pharmacy, distance, stock, price and freshness
+  (live vs last known, with its age). Loading, empty and error states are shown as such. Invented rows appear only if the
+  reviewer picks "Illustrative preview", and every row and the section say they are invented. Pack size is not shown
+  because the catalogue does not carry it.
+* **Hero images are placeholders.** `shared/HeroSlot` reserves each direction's image at a fixed aspect ratio (shown on
+  the slot: 4:5, 3:2, 3:4, 16:9, 4:5), so layout does not depend on the art. To use the real image, pass `src` and
+  `alt` to that direction's `<HeroSlot>`; it fills the same box.
+* **Links.** Only routes that exist (`/portal`, `/pharmacies`, `/notifications`) and anchors on the page. There are no
+  privacy or terms links because those pages do not exist.
+
+Technical marginalia (`P00x`, grid coordinates, rulers) are format and layout decoration. Nothing on these pages
+claims a live reading except the availability table, which is the API's data.
+
 ## Running it
 
 ```
@@ -86,6 +123,10 @@ simulator (`npm run simulator`): sell something out and watch the result change 
   real pipeline.
 * `apps/web/src/**/*.test.tsx`: the pages and the notify form in jsdom against a fake backend (URL state, out-of-stock
   panel, filters, errors and retries, cancel, unread tracking). `lib/*.test.ts`: the pure logic.
+* `apps/web/src/components/landing/**`: the shared search (route, validation, keyboard), the availability states (live,
+  stale, error, empty, illustrative), and a smoke test of each direction (one h1, the primary CTA twice, only real
+  links, one image slot, the limitations stated). `shell/AppShell.test.tsx`: the app chrome is dropped only under
+  `/landing`.
 * Not covered by tests in the repo: the visual result. It was checked in a real browser (screenshots, phone and desktop,
   light and dark, the whole subscribe / restock / notify journey, and the accessibility audit), but that is not repeatable
   from `npm test`.

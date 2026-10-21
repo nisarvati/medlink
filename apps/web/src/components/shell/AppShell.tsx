@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { AccountProvider } from "../providers/account";
 import { LocationProvider } from "../providers/location";
@@ -40,6 +41,18 @@ function Header() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  // The landing-page explorations (/landing/...) own their whole page, so they get the providers but none of the chrome.
+  const pathname = usePathname();
+  const bare = pathname === "/landing" || pathname.startsWith("/landing/");
+  if (bare) {
+    return (
+      <ThemeProvider>
+        <LocationProvider>
+          <AccountProvider>{children}</AccountProvider>
+        </LocationProvider>
+      </ThemeProvider>
+    );
+  }
   return (
     <ThemeProvider>
       <LocationProvider>
