@@ -16,6 +16,7 @@ import { Hero } from "./Hero";
 import { ResultCard } from "./ResultCard";
 import { SearchForm } from "./SearchForm";
 import { UnavailableMedicine } from "./UnavailableMedicine";
+import { UnlistedMedicines } from "./UnlistedMedicines";
 
 // Leaflet touches `window`, so the map is only ever loaded in the browser, and only when asked for.
 const ResultsMap = dynamic(() => import("./ResultsMap"), { ssr: false, loading: () => <Skeleton className="h-[28rem] sm:h-[34rem]" /> });
@@ -24,7 +25,7 @@ export function SearchPage() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const { picked, ready } = useLocation();
+  const { picked, ready, explicit } = useLocation();
   const state = useMemo(() => parseSearchParams(new URLSearchParams(params.toString())), [params]);
   const { location } = picked;
 
@@ -78,6 +79,11 @@ export function SearchPage() {
     () => Array.from(new Map(results.map((result) => [result.medicine.id, result.medicine])).values()),
     [results],
   );
+  // Catalogue matches no pharmacy lists. null: an older API that does not say, so keep the generic empty state.
+  const matches = search.data?.matches ?? null;
+  const unlisted = useMemo(() => (matches ?? []).filter((m) => !m.listed).map((m) => m.medicine), [matches]);
+  const allUnlisted = matches !== null && matches.length > 0 && unlisted.length === matches.length;
+  const notInCatalogue = matches !== null && matches.length === 0;
   const contextMedicine = matchingMedicines.length === 1 ? matchingMedicines[0] : null;
   const pharmacyCount = useMemo(() => new Set(results.map((result) => result.pharmacy.id)).size, [results]);
   const priceRange = useMemo(() => {
@@ -192,26 +198,30 @@ export function SearchPage() {
               <UnavailableMedicine key={medicine.id} medicine={medicine} pharmacyCount={pharmacyCount} location={location} />
             ))}
 
-            {results.length === 0 && (
+            {results.length > 0 && <UnlistedMedicines medicines={unlisted} alsoFound />}
+
+            {results.length === 0 && allUnlisted && <UnlistedMedicines medicines={unlisted} />}
+
+            {results.length === 0 && !allUnlisted && (
               <EmptyState
-                icon={filters > 0 ? <AlertIcon /> : <SearchIcon />}
-                title={filters > 0 ? "No pharmacies match your filters" : `No medicines found for “${state.q}”`}
-                action={filters > 0 ? <Button onClick={() => setFilters({ sort: state.filters.sort })}>Clear filters</Button> : undefined}
+                icon={filters > 0 && !notInCatalogue ? <AlertIcon /> : <SearchIcon />}
+                title={notInCatalogue ? `“${state.q}” isn't in the MedLink catalogue` : filters > 0 ? "No pharmacies match your filters" : `No medicines found for “${state.q}”`}
+                action={filters > 0 && !notInCatalogue ? <Button onClick={() => setFilters({ sort: state.filters.sort })}>Clear filters</Button> : undefined}
               >
-                {filters > 0 ? "Try a wider distance or price, or turn off “In stock only”." : "Check the spelling, or try the generic name (e.g. Paracetamol)."}
+                {filters > 0 && !notInCatalogue ? "Try a wider distance or price, or turn off “In stock only”." : "Check the spelling, or try the generic name (e.g. Paracetamol)."}
               </EmptyState>
             )}
 
             {results.length > 0 && state.view === "list" && (
               <ol className="results-list grid gap-3">
                 {results.map((r) => (
-                  <ResultCard key={`${r.medicine.id}-${r.pharmacy.id}`} result={r} origin={location} best={(state.filters.sort ?? "best") === "best" && r.rank === 1 && r.stockStatus !== "OUT_OF_STOCK"} />
+                  <ResultCard key={`${r.medicine.id}-${r.pharmacy.id}`} result={r} origin={explicit ? location : null} best={(state.filters.sort ?? "best") === "best" && r.rank === 1 && r.stockStatus !== "OUT_OF_STOCK"} />
                 ))}
               </ol>
             )}
 
             {results.length > 0 && state.view === "map" && (
-              <ResultsMap results={results} origin={location} originLabel={picked.label} onOpenPharmacy={(id) => router.push(`/pharmacies/${id}`)} />
+              <ResultsMap results={results} origin={location} directionsOrigin={explicit ? location : null} originLabel={picked.label} onOpenPharmacy={(id) => router.push(`/pharmacies/${id}`)} />
             )}
           </>
         )}

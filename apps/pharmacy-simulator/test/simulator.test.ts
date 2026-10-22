@@ -220,6 +220,14 @@ describe("naming things", () => {
     expect(resolveMedicine("  AUGMENTIN ")).toBe("M006");
   });
 
+  it("also knows the products of the expanded catalogue, without changing the demo medicines", () => {
+    expect(resolveMedicine("Retaunch")).toMatch(/^M\d{3}$/);
+    expect(resolveMedicine("retaunch")).toBe(resolveMedicine("RETAUNCH"));
+    expect(resolveMedicine("m100")).toBe("M100");
+    expect(resolveMedicine("Dolo")).toBe("M002"); // listed in the batch too, but still one product
+    expect(() => resolveMedicine("Viotace")).toThrow(/Unknown medicine/); // held back for manual verification
+  });
+
   it("explains an unknown or ambiguous medicine", () => {
     expect(() => resolveMedicine("M999")).toThrow(/Unknown medicine/);
     expect(() => resolveMedicine("nonsense")).toThrow(/Unknown medicine/);

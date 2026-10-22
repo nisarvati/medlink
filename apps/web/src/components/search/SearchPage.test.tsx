@@ -18,6 +18,7 @@ import { SearchPage } from "./SearchPage";
 const at = (qs: string) => (nav.params = new URLSearchParams(qs));
 const out = (over: Record<string, unknown> = {}) => offer({ quantity: 0, stockStatus: "OUT_OF_STOCK", ...over });
 const search = (results: unknown[], live = true) => () => ({ body: { data: results, meta: { live } } });
+const withMatches = (results: unknown[], matches: { medicine: ReturnType<typeof medicine>; listed: boolean }[]) => () => ({ body: { data: results, meta: { live: true, matches } } });
 const noNotifications = { "GET /api/notifications": () => ({ body: { data: [] } }) };
 
 beforeEach(() => {
@@ -274,5 +275,150 @@ describe("SearchPage failures", () => {
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText(/Pharmacy A/)).toBeTruthy();
     expect(api.count("GET", "/api/search")).toBe(2);
+  });
+});
+
+describe("SearchPage catalogue awareness", () => {
+  const retaunch = medicine({ id: 40, code: "M025", brandName: "Retaunch", genericName: "N-Acetylcysteine + Taurine", dosage: "150mg/500mg" });
+
+  it("says a catalogued medicine is not listed by any pharmacy, without implying stock", async () => {
+    at("q=Retaunch");
+    mockApi({ "GET /api/search": withMatches([], [{ medicine: retaunch, listed: false }]), ...noNotifications });
+    renderWithProviders(<SearchPage />);
+    expect(await screen.findByText("No pharmacy has listed this medicine yet")).toBeTruthy();
+    expect(screen.getByText(/Retaunch 150mg\/500mg tablet/)).toBeTruthy();
+    expect(screen.getByText(/not the same as being out of stock/)).toBeTruthy();
+    expect(screen.queryByText(/No medicines found/)).toBeNull();
+    expect(screen.queryByText(/isn't in the MedLink catalogue/)).toBeNull();
+    expect(screen.queryByLabelText(/notify me when/i)).toBeNull(); // nothing to wait for: it is not even listed
+    expect(screen.queryByRole("article")).toBeNull();
+  });
+
+  it("lists every unlisted match when the query matches several catalogue medicines", async () => {
+    at("q=acetylcysteine");
+    const other = medicine({ id: 41, brandName: "Nefrosave", dosage: "150mg/500mg", genericName: "N-Acetylcysteine + Taurine" });
+    mockApi({ "GET /api/search": withMatches([], [{ medicine: retaunch, listed: false }, { medicine: other, listed: false }]), ...noNotifications });
+    renderWithProviders(<SearchPage />);
+    await screen.findByText("No pharmacy has listed this medicine yet");
+    const list = screen.getByRole("list", { name: "Catalogue medicines no pharmacy has listed" });
+    expect(list.textContent).toMatch(/Retaunch/);
+    expect(list.textContent).toMatch(/Nefrosave/);
+  });
+
+  it("keeps the offers and notes the other matches that no pharmacy lists", async () => {
+    at("q=cetirizine");
+    const listed = medicine({ id: 8, brandName: "Cetzine", genericName: "Cetirizine", dosage: "10mg" });
+    const unlisted = medicine({ id: 90, brandName: "Okacet", genericName: "Cetirizine", dosage: "10mg" });
+    mockApi({
+      "GET /api/search": withMatches([offer({ medicine: listed, price: 22.5, quantity: 7 })], [{ medicine: listed, listed: true }, { medicine: unlisted, listed: false }]),
+      ...noNotifications,
+    });
+    renderWithProviders(<SearchPage />);
+    expect(await screen.findByText(/Pharmacy A/)).toBeTruthy();
+    expect(screen.getAllByRole("article")).toHaveLength(1);
+    expect(screen.getByText(/Also in the MedLink catalogue, but not listed by any pharmacy yet/)).toBeTruthy();
+    const note = screen.getByRole("list", { name: "Catalogue medicines no pharmacy has listed" });
+    expect(note.textContent).toMatch(/Okacet/);
+    expect(note.textContent).not.toMatch(/Cetzine/);
+  });
+
+  it("shows no unlisted note when every match has offers", async () => {
+    at("q=Crocin");
+    mockApi({ "GET /api/search": withMatches([offer()], [{ medicine: medicine(), listed: true }]), ...noNotifications });
+    renderWithProviders(<SearchPage />);
+    await screen.findByText(/Pharmacy A/);
+    expect(screen.queryByText(/not listed by any pharmacy/)).toBeNull();
+    expect(screen.queryByText("No pharmacy has listed this medicine yet")).toBeNull();
+  });
+
+  it("says a medicine that is not in the catalogue at all is not in the catalogue", async () => {
+    at("q=Viotace");
+    mockApi({ "GET /api/search": withMatches([], []), ...noNotifications });
+    renderWithProviders(<SearchPage />);
+    expect(await screen.findByText("“Viotace” isn't in the MedLink catalogue")).toBeTruthy();
+    expect(screen.queryByText("No pharmacy has listed this medicine yet")).toBeNull();
+  });
+
+  it("filters hiding the offers of a listed medicine are still a filter problem, not 'unlisted'", async () => {
+    at("q=Crocin&price=1");
+    mockApi({ "GET /api/search": withMatches([], [{ medicine: medicine(), listed: true }]), ...noNotifications });
+    renderWithProviders(<SearchPage />);
+    expect(await screen.findByText("No pharmacies match your filters")).toBeTruthy();
+    expect(screen.queryByText("No pharmacy has listed this medicine yet")).toBeNull();
+  });
+
+  it("keeps the old empty state when an older API does not send matches", async () => {
+    at("q=zzzz");
+    mockApi({ "GET /api/search": search([]), ...noNotifications });
+    renderWithProviders(<SearchPage />);
+    expect(await screen.findByText(/No medicines found for “zzzz”/)).toBeTruthy();
+    expect(screen.queryByText(/isn't in the MedLink catalogue/)).toBeNull();
+  });
+
+  it("shows loading, then an error with retry, without any catalogue claim", async () => {
+    at("q=Retaunch");
+    mockApi({ "GET /api/search": () => ({ status: 503, body: {} }), ...noNotifications });
+    renderWithProviders(<SearchPage />);
+    expect(screen.getByText("Loading results for Retaunch")).toBeTruthy();
+    expect(await screen.findByText("We couldn't load the results")).toBeTruthy();
+    expect(screen.queryByText("No pharmacy has listed this medicine yet")).toBeNull();
+    expect(screen.queryByText(/isn't in the MedLink catalogue/)).toBeNull();
+  });
+});
+
+const LABEL = "Demo directory listing — not a confirmed MedLink partner.";
+
+describe("SearchPage demo listings", () => {
+  it("marks a demo pharmacy's result with the exact demo directory label, and does not mark one that is not", async () => {
+    at("q=Crocin");
+    mockApi({
+      "GET /api/search": search([
+        offer({ pharmacy: pharmacy({ id: 1, name: "Bandra Medical Stores", demo: true, independent: true }) }),
+        offer({ pharmacy: pharmacy({ id: 2, name: "Some Real Chemist", demo: false }) }),
+      ]),
+      ...noNotifications,
+    });
+    renderWithProviders(<SearchPage />);
+    await screen.findByText(/Bandra Medical Stores/);
+    const badges = screen.getAllByText(LABEL);
+    expect(badges).toHaveLength(1);
+    expect(badges[0]!.getAttribute("title")).toMatch(/synthetic demo data/);
+    expect(badges[0]!.getAttribute("title")).toMatch(/not this pharmacy's actual inventory/);
+    expect(badges[0]!.getAttribute("title")).toMatch(/has not approved the use of its name/);
+  });
+
+  it("shows no demo marking when the API does not say (an older API)", async () => {
+    at("q=Crocin");
+    mockApi({ "GET /api/search": search([offer()]), ...noNotifications });
+    renderWithProviders(<SearchPage />);
+    await screen.findByText(/Pharmacy A/);
+    expect(screen.queryByText(LABEL)).toBeNull();
+  });
+});
+
+describe("SearchPage Get Directions", () => {
+  const verified = pharmacy({ id: 1, name: "Bandra Medical Stores", address: "Hill Road, Bandra West, Mumbai 400050", latitude: 19.05548, longitude: 72.83152, demo: true, locationVerified: true });
+  const addressOnly = pharmacy({ id: 2, name: "Roopam Medical and General Stores", address: "Shop 8, Bhavani Nagar Shopping Centre, Marol, Andheri East 400059", latitude: 0, longitude: 0, demo: true, locationVerified: false });
+  const hrefs = () => screen.getAllByRole("link", { name: /^Get Directions to/ }).map((a) => ({ label: a.getAttribute("aria-label")!, href: a.getAttribute("href")!, target: a.getAttribute("target"), rel: a.getAttribute("rel") }));
+
+  it("gives every result its own Get Directions link: the point when verified, the address when not, and no origin by default", async () => {
+    at("q=Crocin");
+    mockApi({ "GET /api/search": search([offer({ pharmacy: verified }), offer({ pharmacy: addressOnly })]), ...noNotifications });
+    renderWithProviders(<SearchPage />);
+    await screen.findByText(/Bandra Medical Stores/);
+    const links = hrefs();
+    expect(links).toHaveLength(2);
+    expect(links[0]).toMatchObject({ label: "Get Directions to Bandra Medical Stores", href: "https://www.google.com/maps/dir/?api=1&destination=19.05548,72.83152", target: "_blank", rel: "noopener noreferrer" });
+    expect(links[1]!.href).toBe(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressOnly.address)}`);
+    expect(links.every((l) => !l.href.includes("origin="))).toBe(true); // the built-in default area is not the user's choice
+  });
+
+  it("adds the origin once the user has chosen a location", async () => {
+    localStorage.setItem("medlink:location", JSON.stringify({ label: "Powai, Mumbai", location: { latitude: 19.1187, longitude: 72.9073 } }));
+    at("q=Crocin");
+    mockApi({ "GET /api/search": search([offer({ pharmacy: verified })]), ...noNotifications });
+    renderWithProviders(<SearchPage />);
+    await screen.findByText(/Bandra Medical Stores/);
+    expect(hrefs()[0]!.href).toBe("https://www.google.com/maps/dir/?api=1&destination=19.05548,72.83152&origin=19.1187,72.9073");
   });
 });

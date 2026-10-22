@@ -1,4 +1,4 @@
-import type { Db } from "@medlink/db";
+import { hasVerifiedLocation, isDemoPharmacy, isIndependentListing, type Db } from "@medlink/db";
 import type { Config } from "../../config.js";
 import { haversineKm, type Coordinates } from "../geo/haversine.js";
 import { stockStatus, type StockStatus } from "../inventory/stock.js";
@@ -24,7 +24,7 @@ export interface SearchResult {
   score: number;
   scoreBreakdown: ScoreBreakdown;
   medicine: Omit<Medicine, "relevance">;
-  pharmacy: { id: number; code: string; name: string; address: string; latitude: number; longitude: number };
+  pharmacy: { id: number; code: string; name: string; address: string; latitude: number; longitude: number; demo: boolean; independent: boolean; locationVerified: boolean };
   quantity: number;
   price: number;
   stockStatus: StockStatus;
@@ -41,8 +41,20 @@ export interface SearchDeps {
   log?: { warn(obj: object, msg?: string): void };
 }
 
+/** A catalogue medicine the query matched, whether or not any pharmacy lists it. */
+export interface CatalogueMatch {
+  medicine: Omit<Medicine, "relevance">;
+  /**
+   * Whether at least one pharmacy currently lists it, before filters (a listed medicine can be out of stock, or hidden by
+   * a distance filter). It says nothing about stock, and catalogue presence alone never makes it true.
+   */
+  listed: boolean;
+}
+
 export interface SearchOutcome {
   results: SearchResult[];
+  /** Every catalogue medicine the query matched (up to the search limit), best match first. */
+  matches: CatalogueMatch[];
   /** Whether live stock answered. False: everything shown is the catalogue's last known value. */
   live: boolean;
 }
@@ -65,7 +77,7 @@ export async function offersForMedicines(
   location: Coordinates,
   filters: SearchFilters = {},
 ): Promise<SearchOutcome> {
-  if (!medicines.length) return { results: [], live: !!deps.live };
+  if (!medicines.length) return { results: [], matches: [], live: !!deps.live };
   const byCode = new Map(medicines.map((m) => [m.code, m]));
 
   const { rows } = await deps.db.query<{
@@ -89,7 +101,7 @@ export async function offersForMedicines(
     [medicines.map((m) => m.id)],
   );
   const base: BaseOffer[] = rows.map((r) => ({
-    pharmacy: { id: Number(r.pharmacy_id), code: r.pharmacy_code, name: r.name, address: r.address, latitude: r.latitude, longitude: r.longitude },
+    pharmacy: { id: Number(r.pharmacy_id), code: r.pharmacy_code, name: r.name, address: r.address, latitude: r.latitude, longitude: r.longitude, demo: isDemoPharmacy(r.pharmacy_code), independent: isIndependentListing(r.pharmacy_code), locationVerified: hasVerifiedLocation(r.pharmacy_code) },
     medicine: byCode.get(r.medicine_code)!,
     quantity: r.quantity,
     price: Number(r.price),
@@ -101,6 +113,8 @@ export async function offersForMedicines(
   );
   // Only the medicines we searched for: live data may mention others (it is keyed by pharmacy, not by search).
   const wanted = offers.filter((o) => byCode.has(o.medicine.code));
+  const listedCodes = new Set(wanted.map((o) => o.medicine.code));
+  const matches: CatalogueMatch[] = medicines.map(({ relevance: _relevance, ...medicine }) => ({ medicine, listed: listedCodes.has(medicine.code) }));
 
   const withDistance = wanted
     .map((o) => ({ o, distanceKm: haversineKm(location, o.pharmacy) }))
@@ -126,6 +140,7 @@ export async function offersForMedicines(
   const ordered = orderBy(ranked, filters.sort ?? "best");
   return {
     live,
+    matches,
     results: ordered.map((r, i) => toResult(r.offer, r, i + 1, deps.config.LOW_STOCK_THRESHOLD)),
   };
 }

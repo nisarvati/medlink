@@ -34,10 +34,10 @@ export function searchRoutes(app: FastifyInstance, deps: SearchDeps) {
   app.get("/api/search", async (req) => {
     const { q, lat, lng, limit, inStock, maxDistanceKm, maxPrice, sort } = searchQuery.parse(req.query);
     const filters = { inStock, maxDistanceKm, maxPrice, sort };
-    const { results, live } = await searchOffers(deps, { q, location: { latitude: lat, longitude: lng }, limit, filters });
+    const { results, matches, live } = await searchOffers(deps, { q, location: { latitude: lat, longitude: lng }, limit, filters });
     // Patient location is logged at ~1 km precision only.
     req.log.info({ q, approxLat: Math.round(lat * 100) / 100, approxLng: Math.round(lng * 100) / 100, results: results.length, live }, "search");
-    return { data: results, meta: { count: results.length, weights: deps.config.ranking.weights, live, sort, filters: { inStock: inStock ?? false, maxDistanceKm: maxDistanceKm ?? null, maxPrice: maxPrice ?? null } } };
+    return { data: results, meta: { count: results.length, matches, weights: deps.config.ranking.weights, live, sort, filters: { inStock: inStock ?? false, maxDistanceKm: maxDistanceKm ?? null, maxPrice: maxPrice ?? null } } };
   });
 
   /** Same-ingredient alternatives that can be bought nearby, for a medicine that is out of stock. */

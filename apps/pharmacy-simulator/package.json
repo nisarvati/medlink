@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "start": "tsx --env-file-if-exists=../../.env src/main.ts"
+    "start": "tsx --env-file-if-exists=../../.env src/main.ts",
+    "demo:seed": "tsx --env-file-if-exists=../../.env src/demo-seed.ts",
+    "demo:register": "tsx --env-file-if-exists=../../.env src/demo-register.ts"
   },
   "dependencies": {
     "@medlink/db": "*",

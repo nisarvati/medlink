@@ -1,4 +1,4 @@
-import type { Db } from "@medlink/db";
+import { hasVerifiedLocation, isDemoPharmacy, isIndependentListing, type Db } from "@medlink/db";
 
 export interface Pharmacy {
   id: number;
@@ -8,6 +8,12 @@ export interface Pharmacy {
   address: string;
   latitude: number;
   longitude: number;
+  /** A demo listing: its stock, prices and availability are synthetic. True for every pharmacy MedLink knows today. */
+  demo: boolean;
+  /** A real independent pharmacy used as a demo listing (not one of the five fictional demo pharmacies). Never a confirmed MedLink partner. */
+  independent: boolean;
+  /** false when the map point is not verified: clients give directions by address and do not claim exact distances. */
+  locationVerified: boolean;
 }
 
 interface Row {
@@ -19,7 +25,7 @@ interface Row {
   longitude: number;
 }
 
-const toPharmacy = (r: Row): Pharmacy => ({ ...r, id: Number(r.id) });
+const toPharmacy = (r: Row): Pharmacy => ({ ...r, id: Number(r.id), demo: isDemoPharmacy(r.code), independent: isIndependentListing(r.code), locationVerified: hasVerifiedLocation(r.code) });
 const COLUMNS = "id, code, name, address, latitude, longitude";
 
 export async function listPharmacies(db: Db): Promise<Pharmacy[]> {

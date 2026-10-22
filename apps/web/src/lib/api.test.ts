@@ -8,10 +8,18 @@ describe("searchMedicines", () => {
   it("calls /api/search with q, lat and lng and returns the data array", async () => {
     const fetchImpl = respond(200, { data: [{ rank: 1 }] });
     const out = await searchMedicines("Crocin 500mg", loc, { fetchImpl, baseUrl: "http://api.test" });
-    expect(out).toEqual({ results: [{ rank: 1 }], live: false });
+    expect(out).toEqual({ results: [{ rank: 1 }], matches: null, live: false });
     const url = new URL(String(fetchImpl.mock.calls[0]![0]));
     expect(url.origin + url.pathname).toBe("http://api.test/api/search");
     expect(Object.fromEntries(url.searchParams)).toEqual({ q: "Crocin 500mg", lat: "19.1364", lng: "72.8296" });
+  });
+
+  it("returns the catalogue matches when the API sends them, and null when it does not", async () => {
+    const matches = [{ medicine: { id: 40, code: "M025", brandName: "Retaunch", genericName: "N-Acetylcysteine + Taurine", dosage: "150mg/500mg", form: "tablet" }, listed: false }];
+    const withMatches = await searchMedicines("Retaunch", loc, { fetchImpl: respond(200, { data: [], meta: { live: true, matches } }), baseUrl: "http://api.test" });
+    expect(withMatches).toEqual({ results: [], matches, live: true });
+    const garbled = await searchMedicines("x", loc, { fetchImpl: respond(200, { data: [], meta: { matches: "nope" } }), baseUrl: "http://api.test" });
+    expect(garbled.matches).toBeNull();
   });
 
   it("maps 400 to a validation error using the server's field messages", async () => {
@@ -102,7 +110,7 @@ describe("search filters", () => {
   it("sends only the filters that are set, and leaves the default sort out", async () => {
     const fetchImpl = respond(200, { data: [], meta: { live: true } });
     const out = await searchMedicines("croc", loc, { fetchImpl, baseUrl: "http://api.test", filters: { inStock: true, maxDistanceKm: 5, sort: "best" } });
-    expect(out).toEqual({ results: [], live: true });
+    expect(out).toEqual({ results: [], matches: null, live: true });
     const params = new URL(String(fetchImpl.mock.calls[0]![0])).searchParams;
     expect(Object.fromEntries(params)).toEqual({ q: "croc", lat: "19.1364", lng: "72.8296", inStock: "true", maxDistanceKm: "5" });
   });

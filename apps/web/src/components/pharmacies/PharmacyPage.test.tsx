@@ -44,7 +44,37 @@ describe("PharmacyPage", () => {
     expect(screen.getByText(/Low stock · only 3 left/)).toBeTruthy();
     expect(screen.getByText("Out of stock", { selector: "span" })).toBeTruthy();
     expect(screen.getByText(/Live stock, synced from the pharmacy/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /directions/i }).getAttribute("href")).toContain("google.com/maps/dir");
+    const directions = screen.getByRole("link", { name: /Get Directions/ });
+    expect(directions.getAttribute("href")).toBe("https://www.google.com/maps/dir/?api=1&destination=19.1364,72.8296");
+    expect(directions.getAttribute("target")).toBe("_blank");
+    expect(directions.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(screen.getByRole("link", { name: /on Google Maps/ }).getAttribute("href")).toBe("https://www.google.com/maps/search/?api=1&query=19.1364,72.8296");
+  });
+
+  it("says plainly that a demo pharmacy's stock is synthetic, and says nothing for one that is not flagged", async () => {
+    mockApi(routes({ "GET /api/pharmacies/1": () => ({ body: { data: { ...pharmacy({ demo: true, independent: true }), distanceKm: 0.05 } } }) }));
+    const { unmount } = renderWithProviders(<PharmacyPage id={1} />);
+    await screen.findByRole("heading", { level: 1, name: "Pharmacy A - Andheri West" });
+    expect(screen.getByText("Demo directory listing — not a confirmed MedLink partner.")).toBeTruthy();
+    expect(screen.getByText(/stock, prices and availability shown here are synthetic demo data, not this pharmacy's actual inventory/)).toBeTruthy();
+    expect(screen.getByText(/has not approved the use of its name/)).toBeTruthy();
+    unmount();
+
+    mockApi(routes());
+    renderWithProviders(<PharmacyPage id={1} />);
+    await screen.findByRole("heading", { level: 1, name: "Pharmacy A - Andheri West" });
+    expect(screen.queryByText("Demo directory listing — not a confirmed MedLink partner.")).toBeNull();
+  });
+
+  it("gives directions by address when the pharmacy's point is not verified, and never to coordinates it does not trust", async () => {
+    const roopam = pharmacy({ name: "Roopam Medical and General Stores", address: "Shop 8, Bhavani Nagar Shopping Centre, Marol, Andheri East 400059", latitude: 0, longitude: 0, demo: true, independent: true, locationVerified: false });
+    mockApi(routes({ "GET /api/pharmacies/1": () => ({ body: { data: { ...roopam, distanceKm: null } } }) }));
+    renderWithProviders(<PharmacyPage id={1} />);
+    await screen.findByRole("heading", { level: 1, name: "Roopam Medical and General Stores" });
+    const expected = `destination=${encodeURIComponent(roopam.address)}`;
+    expect(screen.getByRole("link", { name: /Get Directions/ }).getAttribute("href")).toContain(expected);
+    expect(screen.getByRole("link", { name: /on Google Maps/ }).getAttribute("href")).toContain(`query=${encodeURIComponent(roopam.address)}`);
+    expect(screen.getByRole("link", { name: /Get Directions/ }).getAttribute("href")).not.toContain("destination=0,0");
   });
 
   it("filters by availability without another request", async () => {

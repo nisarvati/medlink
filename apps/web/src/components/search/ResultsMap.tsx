@@ -6,12 +6,13 @@ import { useEffect, useRef } from "react";
 import type { Location, SearchResult } from "../../lib/api";
 import { formatDistance, formatPrice } from "../../lib/format";
 import { boundsOf, toPins, type MapPin } from "../../lib/map-data";
+import { directionsUrlFor, mapsViewUrl } from "../../lib/maps";
 
 const CLASS = { IN_STOCK: "ml-marker-in", LOW_STOCK: "ml-marker-low", OUT_OF_STOCK: "ml-marker-out" } as const;
 const STATUS_TEXT = { IN_STOCK: "In stock", LOW_STOCK: "Low stock", OUT_OF_STOCK: "Out of stock" } as const;
 
 /** Popup content as DOM nodes with textContent, so pharmacy data can never inject markup. */
-function popupFor(pin: MapPin, onOpen: (id: number) => void): HTMLElement {
+export function popupFor(pin: MapPin, onOpen: (id: number) => void, directionsOrigin: Location | null = null): HTMLElement {
   const root = document.createElement("div");
   root.style.minWidth = "180px";
   const title = document.createElement("strong");
@@ -21,6 +22,12 @@ function popupFor(pin: MapPin, onOpen: (id: number) => void): HTMLElement {
   address.textContent = pin.pharmacy.address;
   address.style.cssText = "font-size:12px;opacity:.75;margin:2px 0 6px";
   root.append(address);
+  if (pin.pharmacy.demo) {
+    const demo = document.createElement("div");
+    demo.textContent = "Demo directory listing — not a confirmed MedLink partner. Stock and prices are synthetic.";
+    demo.style.cssText = "font-size:12px;font-weight:600;margin:0 0 6px";
+    root.append(demo);
+  }
   for (const o of pin.offers) {
     const line = document.createElement("div");
     line.style.cssText = "font-size:13px;margin:2px 0";
@@ -36,11 +43,29 @@ function popupFor(pin: MapPin, onOpen: (id: number) => void): HTMLElement {
     onOpen(pin.pharmacy.id);
   });
   root.append(link);
+  // Google Maps links for this pharmacy only: its verified point, or its address; opened in a new tab.
+  const links = [
+    { text: "Get Directions", href: directionsUrlFor(directionsOrigin, pin.pharmacy) },
+    { text: "View on Google Maps", href: mapsViewUrl(pin.pharmacy) },
+  ];
+  const row = document.createElement("div");
+  row.style.cssText = "margin-top:6px;display:flex;gap:12px;flex-wrap:wrap";
+  for (const { text, href } of links) {
+    if (!href) continue;
+    const a = document.createElement("a");
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.textContent = text;
+    a.style.cssText = "font-weight:600;color:var(--brand)";
+    row.append(a);
+  }
+  if (row.childElementCount) root.append(row);
   return root;
 }
 
 /** The search results on a map: one marker per pharmacy, coloured by stock, plus where you are. */
-export default function ResultsMap({ results, origin, originLabel, onOpenPharmacy }: { results: SearchResult[]; origin: Location; originLabel: string; onOpenPharmacy: (id: number) => void }) {
+export default function ResultsMap({ results, origin, directionsOrigin = null, originLabel, onOpenPharmacy }: { results: SearchResult[]; origin: Location; directionsOrigin?: Location | null; originLabel: string; onOpenPharmacy: (id: number) => void }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
@@ -81,13 +106,13 @@ export default function ResultsMap({ results, origin, originLabel, onOpenPharmac
         iconSize: [0, 0],
       });
       L.marker([pin.pharmacy.latitude, pin.pharmacy.longitude], { icon, title: `${pin.pharmacy.name}: ${STATUS_TEXT[pin.status]}`, alt: pin.pharmacy.name })
-        .bindPopup(() => popupFor(pin, (id) => open.current(id)))
+        .bindPopup(() => popupFor(pin, (id) => open.current(id), directionsOrigin))
         .addTo(group);
     }
 
     const bounds = boundsOf(pins, origin);
     if (bounds) map.current.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: [48, 48], maxZoom: 15 });
-  }, [results, origin, originLabel]);
+  }, [results, origin, directionsOrigin, originLabel]);
 
   const nearest = results.length ? Math.min(...results.map((r) => r.distanceKm)) : null;
   return (

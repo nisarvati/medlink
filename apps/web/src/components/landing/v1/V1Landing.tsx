@@ -63,8 +63,8 @@ export function V1Landing() {
               width={1600}
               height={2000}
               src="/images/landing/v1-hero.webp"
-              alt="Illustration: independent pharmacies, each marked as a node on a contour map, joined by fine lines to a single point above a medicine carton, bottle, blister pack and capsules."
-              label="Monumental topographic print of a city: pharmacy nodes, availability signals, fine connecting lines"
+              alt="Illustration: a terrace of three independent pharmacies in front of a simple street map. A dotted line joins each shop to its pin on the map, and the largest shop, marked by a capsule sign, has the highlighted pin."
+              label="A terrace of three independent pharmacy storefronts, each joined by a dotted line to its pin on a simple street map"
             />
             <p className={`${s.meta} ${s.figCap}`} aria-hidden="true">
               <span>Fig. 01 · Illustration</span>

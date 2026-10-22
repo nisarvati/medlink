@@ -4,20 +4,21 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, getPharmacy, getPharmacyStock, type PharmacyStockItem, type StockStatus } from "../../lib/api";
 import { formatDistance, formatPrice, pluralise } from "../../lib/format";
-import { buildDirectionsUrl } from "../../lib/maps";
 import { useAsync } from "../../lib/use-async";
 import { useDebounced } from "../../lib/use-debounced";
 import { NotifyMe } from "../search/NotifyMe";
 import { useLocation } from "../providers/location";
 import { Freshness } from "../stock/Freshness";
 import { StockBadge } from "../stock/StockBadge";
-import { ArrowLeftIcon, BellIcon, ExternalIcon, MapPinIcon, SearchIcon } from "../ui/icons";
+import { ArrowLeftIcon, BellIcon, MapPinIcon, SearchIcon } from "../ui/icons";
+import { DemoBadge, DEMO_NOTE } from "../ui/DemoBadge";
+import { DirectionsActions } from "./DirectionsActions";
 import { Alert, Button, Card, Chip, EmptyState, Input, LinkButton, LiveDot, Skeleton } from "../ui/primitives";
 
 type Tab = "all" | StockStatus;
 
 export function PharmacyPage({ id }: { id: number }) {
-  const { picked, ready } = useLocation();
+  const { picked, ready, explicit } = useLocation();
   const [text, setText] = useState("");
   const [tab, setTab] = useState<Tab>("all");
   const [notifying, setNotifying] = useState<number | null>(null);
@@ -73,11 +74,16 @@ export function PharmacyPage({ id }: { id: number }) {
                 <MapPinIcon size={16} className="shrink-0 text-brand" />
                 {pharmacy.data.address}
               </p>
+              {pharmacy.data.demo && (
+                <p className="mt-2 text-sm text-muted">
+                  <DemoBadge demo independent={pharmacy.data.independent} /> <span>{DEMO_NOTE}</span>
+                </p>
+              )}
               {pharmacy.data.distanceKm !== null && <p className="mt-1 text-sm font-medium">{formatDistance(pharmacy.data.distanceKm)} from {picked.label.replace(/, Mumbai$/, "")}</p>}
             </div>
-            <LinkButton href={buildDirectionsUrl(picked.location, { latitude: pharmacy.data.latitude, longitude: pharmacy.data.longitude })} external variant="primary">
-              Directions <ExternalIcon size={16} />
-            </LinkButton>
+            <div className="flex flex-wrap gap-2">
+              <DirectionsActions pharmacy={pharmacy.data} origin={explicit ? picked.location : null} variant="primary" size="md" showView />
+            </div>
           </div>
         ) : (
           <>

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { Location, SearchResult } from "../../lib/api";
 import { formatDistance, formatPrice } from "../../lib/format";
-import { buildDirectionsUrl } from "../../lib/maps";
 import { Freshness } from "../stock/Freshness";
 import { StockBadge } from "../stock/StockBadge";
-import { ArrowRightIcon, ExternalIcon, MapPinIcon, PhoneIcon } from "../ui/icons";
+import { ArrowRightIcon, MapPinIcon, PhoneIcon } from "../ui/icons";
 import { Badge, Card, cx, LinkButton } from "../ui/primitives";
+import { DemoBadge } from "../ui/DemoBadge";
+import { DirectionsActions } from "../pharmacies/DirectionsActions";
 
 export function ResultCard({ result, origin, best }: { result: SearchResult; origin: Location | null; best: boolean }) {
   const { medicine, pharmacy, stockStatus } = result;
@@ -31,6 +32,7 @@ export function ResultCard({ result, origin, best }: { result: SearchResult; ori
               </Link>
             </h2>
             <p className="mt-1 text-sm text-muted">{pharmacy.address}</p>
+            {pharmacy.demo && <p className="mt-2"><DemoBadge demo independent={pharmacy.independent} /></p>}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Badge tone="neutral" className="max-w-full truncate">{medicine.brandName} {medicine.dosage} · {medicine.genericName} {medicine.form}</Badge>
               <details>
@@ -56,9 +58,7 @@ export function ResultCard({ result, origin, best }: { result: SearchResult; ori
               <Freshness source={result.source} updatedAt={result.updatedAt} className="mt-1.5" />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <LinkButton className="!min-w-0 !flex-1 !shrink !px-2 !text-xs justify-center" href={buildDirectionsUrl(origin, { latitude: pharmacy.latitude, longitude: pharmacy.longitude })} external size="sm" variant="directions">
-                Directions <ExternalIcon size={14} />
-              </LinkButton>
+              <DirectionsActions pharmacy={pharmacy} origin={origin} className="!min-w-0 !flex-1 !shrink !px-2 !text-xs justify-center" />
               <LinkButton className="!min-w-0 !flex-1 !shrink !px-2 !text-xs justify-center" href={`/pharmacies/${pharmacy.id}`} size="sm" variant="secondary">
                 View Pharmacy <ArrowRightIcon size={14} />
               </LinkButton>

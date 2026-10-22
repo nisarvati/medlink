@@ -5,14 +5,15 @@ import { useMemo } from "react";
 import { ApiError, listPharmacies } from "../../lib/api";
 import { formatDistance } from "../../lib/format";
 import { haversineKm } from "../../lib/geo";
-import { buildDirectionsUrl } from "../../lib/maps";
 import { useAsync } from "../../lib/use-async";
 import { useLocation } from "../providers/location";
-import { ChevronRightIcon, ExternalIcon, StoreIcon } from "../ui/icons";
+import { ChevronRightIcon, StoreIcon } from "../ui/icons";
 import { Alert, Button, Card, EmptyState, LinkButton, Skeleton } from "../ui/primitives";
+import { DemoBadge } from "../ui/DemoBadge";
+import { DirectionsActions } from "./DirectionsActions";
 
 export function PharmaciesPage() {
-  const { picked } = useLocation();
+  const { picked, explicit } = useLocation();
   const state = useAsync((signal) => listPharmacies({ signal }), []);
   const sorted = useMemo(
     () => (state.data ?? []).map((p) => ({ p, km: haversineKm(picked.location, p) })).sort((a, b) => a.km - b.km),
@@ -57,6 +58,7 @@ export function PharmaciesPage() {
                     </Link>
                   </h2>
                   <p className="text-sm text-muted">{p.address}</p>
+                  {p.demo && <p className="mt-1"><DemoBadge demo independent={p.independent} /></p>}
                   <p className="mt-2 inline-flex items-center rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-ink">{formatDistance(km)}</p>
                 </div>
               </div>
@@ -64,9 +66,7 @@ export function PharmaciesPage() {
                 <LinkButton href={`/pharmacies/${p.id}`} variant="primary" size="sm">
                   See stock <ChevronRightIcon size={14} />
                 </LinkButton>
-                <LinkButton href={buildDirectionsUrl(picked.location, { latitude: p.latitude, longitude: p.longitude })} external size="sm">
-                  Directions <ExternalIcon size={14} />
-                </LinkButton>
+                <DirectionsActions pharmacy={p} origin={explicit ? picked.location : null} />
               </div>
             </Card>
           </li>

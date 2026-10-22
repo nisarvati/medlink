@@ -19,6 +19,12 @@ export interface PharmacyRef {
   address: string;
   latitude: number;
   longitude: number;
+  /** A demo listing: its stock, prices and availability are synthetic. Missing from an older API. */
+  demo?: boolean;
+  /** A real independent pharmacy used as a demo listing; never a confirmed MedLink partner. Missing from an older API. */
+  independent?: boolean;
+  /** false when the map point is not verified: directions then use the address. Missing from an older API. */
+  locationVerified?: boolean;
 }
 
 export interface SearchResult {
@@ -47,8 +53,16 @@ export interface SearchFilters {
   sort?: SortKey;
 }
 
+/** A catalogue medicine the query matched. `listed`: at least one pharmacy lists it (not that it is in stock). */
+export interface CatalogueMatch {
+  medicine: MedicineRef;
+  listed: boolean;
+}
+
 export interface SearchResponse {
   results: SearchResult[];
+  /** Every catalogue medicine matched, listed or not. null: the API did not say (an older server). */
+  matches: CatalogueMatch[] | null;
   /** False: live stock did not answer, so everything shown is the catalogue's last known value. */
   live: boolean;
 }
@@ -167,8 +181,9 @@ export async function searchMedicines(
     maxPrice: f.maxPrice,
     sort: f.sort && f.sort !== "best" ? f.sort : undefined,
   });
-  const body = await getJson<{ data: SearchResult[]; meta?: { live?: boolean } }>(`/api/search?${params}`, opts);
-  return { results: body.data, live: body.meta?.live === true };
+  const body = await getJson<{ data: SearchResult[]; meta?: { live?: boolean; matches?: CatalogueMatch[] } }>(`/api/search?${params}`, opts);
+  const matches = Array.isArray(body.meta?.matches) ? body.meta.matches : null;
+  return { results: body.data, matches, live: body.meta?.live === true };
 }
 
 /** Same-ingredient medicines that can be bought nearby, for one that is out of stock. */
